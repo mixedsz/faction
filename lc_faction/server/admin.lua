@@ -522,11 +522,17 @@ RegisterNetEvent('faction:adminCreateRule', function(data)
     local title    = tostring(data.title or ''):sub(1, 256)
     local content  = tostring(data.content or ''):sub(1, 4000)
     local isGlobal = data.isGlobal and 1 or 0
-    local fid      = not isGlobal and tonumber(data.factionId) or nil
+    -- Lua: 0 is truthy, so must compare explicitly
+    local fid      = (isGlobal == 0) and tonumber(data.factionId) or nil
     local order    = tonumber(data.order) or 0
 
     if title == '' or content == '' then
         lib.notify(source, { type = 'error', description = 'Title and content are required.' })
+        return
+    end
+
+    if isGlobal == 0 and not fid then
+        lib.notify(source, { type = 'error', description = 'A faction must be selected for faction-specific rules.' })
         return
     end
 
@@ -548,7 +554,8 @@ RegisterNetEvent('faction:adminUpdateRule', function(data)
     local title    = tostring(data.title or ''):sub(1, 256)
     local content  = tostring(data.content or ''):sub(1, 4000)
     local isGlobal = data.isGlobal and 1 or 0
-    local fid      = not isGlobal and tonumber(data.factionId) or nil
+    -- Lua: 0 is truthy, must compare explicitly
+    local fid      = (isGlobal == 0) and tonumber(data.factionId) or nil
     local order    = tonumber(data.order) or 0
 
     MySQL.update('UPDATE faction_rules SET title = ?, content = ?, is_global = ?, faction_id = ?, `order` = ? WHERE id = ?', {

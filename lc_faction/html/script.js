@@ -2103,21 +2103,53 @@
     function renderAdminCKTab(content) {
         const cks = content.items || [];
         if (cks.length === 0) {
-            tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">No pending CK requests</span></div>';
+            tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">No CK requests found</span></div>';
             return;
         }
-        
-        let html = '<div class="list-container">';
+
+        const statusColors = { pending: '#f59e0b', approved: '#22c55e', rejected: '#ef4444', executed: '#8b5cf6' };
+
+        let html = '<div class="list-container" style="display:flex;flex-direction:column;gap:0.75rem;">';
         cks.forEach(ck => {
+            const sc = statusColors[ck.status] || '#71717a';
+            const actionBtns = (function() {
+                if (ck.status === 'pending') {
+                    return `<button class="btn-ck-action" data-ck-id="${ck.id}" data-action="approved" style="background:#22c55e1a;border:1px solid #22c55e44;color:#22c55e;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;">Approve</button>
+                            <button class="btn-ck-action" data-ck-id="${ck.id}" data-action="rejected" style="background:#ef44441a;border:1px solid #ef444444;color:#ef4444;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;">Reject</button>
+                            <button class="btn-ck-action" data-ck-id="${ck.id}" data-action="executed" style="background:#8b5cf61a;border:1px solid #8b5cf644;color:#8b5cf6;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;">Execute</button>`;
+                } else if (ck.status === 'approved') {
+                    return `<button class="btn-ck-action" data-ck-id="${ck.id}" data-action="executed" style="background:#8b5cf61a;border:1px solid #8b5cf644;color:#8b5cf6;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;">Execute</button>
+                            <button class="btn-ck-action" data-ck-id="${ck.id}" data-action="rejected" style="background:#ef44441a;border:1px solid #ef444444;color:#ef4444;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;">Reject</button>`;
+                }
+                return '';
+            })();
+
             html += `
-                <div class="list-item">
-                    <strong>${escapeHtml(ck.target_name || 'Unknown')}</strong> (${escapeHtml(ck.faction_label || '')})<br>
-                    <small>Reason: ${escapeHtml(ck.reason || 'No reason')} | ID: ${ck.id}</small>
-                </div>
-            `;
+                <div style="background:#27272a;border:1px solid #3f3f46;border-radius:10px;padding:1rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.5rem;">
+                        <div>
+                            <span style="color:#fff;font-weight:600;font-size:0.9375rem;">${escapeHtml(ck.target_name || 'Unknown')}</span>
+                            <span style="color:#71717a;font-size:0.875rem;"> — ${escapeHtml(ck.faction_label || 'Unknown Faction')}</span>
+                        </div>
+                        <span style="background:${sc}1a;color:${sc};border:1px solid ${sc}44;padding:2px 10px;border-radius:6px;font-size:0.7rem;font-weight:700;text-transform:uppercase;white-space:nowrap;">${escapeHtml(ck.status || 'pending')}</span>
+                    </div>
+                    <div style="color:#a1a1aa;font-size:0.8125rem;margin-bottom:0.5rem;"><strong>Reason:</strong> ${escapeHtml(ck.reason || 'No reason given')}</div>
+                    <div style="color:#71717a;font-size:0.75rem;margin-bottom:${actionBtns ? '0.75rem' : '0'};">Submitted: ${formatDate(ck.created_at)}</div>
+                    ${actionBtns ? `<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">${actionBtns}</div>` : ''}
+                </div>`;
         });
         html += '</div>';
         tabContent.innerHTML = html;
+
+        tabContent.querySelectorAll('.btn-ck-action').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const ckId = parseInt(this.getAttribute('data-ck-id'));
+                const action = this.getAttribute('data-action');
+                if (ckId && action) {
+                    post('adminUpdateCK', { ckId: ckId, status: action });
+                }
+            });
+        });
     }
 
     function renderAdminConflictsTab(content) {
@@ -2397,9 +2429,11 @@
         } else {
             html += '<div class="cooldowns-list">';
             cooldowns.forEach(cooldown => {
-                const timeRemaining = calculateTimeRemaining(cooldown.ends_at);
+                const secsRemaining = typeof cooldown.seconds_remaining === 'number' ? cooldown.seconds_remaining : 0;
+                const timeRemaining = formatTimeRemaining(secsRemaining);
                 const typeLabel = getCooldownTypeLabel(cooldown.type);
-                
+                const endsAtDisplay = cooldown.ends_at ? formatDate(cooldown.ends_at) : 'Unknown';
+
                 html += `
                     <div class="cooldown-card" data-cooldown-id="${cooldown.id}" style="background: #27272a; border: 1px solid #3f3f46; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
                         <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
@@ -2414,7 +2448,7 @@
                                     Type: ${escapeHtml(typeLabel)} | Remaining: <span style="color: #f59e0b; font-weight: 600;">${timeRemaining}</span>
                                 </div>
                                 <div style="color: #71717a; font-size: 0.75rem; margin-top: 0.5rem;">
-                                    Ends: ${formatDate(cooldown.ends_at)}
+                                    Ends: ${endsAtDisplay}
                                 </div>
                             </div>
                         </div>
@@ -2686,8 +2720,10 @@
             'war': 'War',
             'ck': 'CK Request',
             'territory': 'Territory Claim',
+            'territory_claim': 'Territory Claim',
             'gun_drop': 'Gun Drop',
-            'violation': 'Violation'
+            'violation': 'Violation',
+            'custom': 'Custom'
         };
         return labels[type] || type;
     }

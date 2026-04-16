@@ -35,16 +35,28 @@ RegisterNetEvent('faction:getFactionPlayersForCK', function(factionId)
         return
     end
 
+    -- Build a fast lookup of online players by identifier
+    local onlineMap = {}
+    for _, pid in ipairs(GetPlayers()) do
+        local src = tonumber(pid)
+        if src then
+            local p = ESX.GetPlayerFromId(src)
+            if p and p.identifier then
+                onlineMap[p.identifier] = { src = src, name = p.getName() }
+            end
+        end
+    end
+
     local members = MySQL.query.await('SELECT identifier, player_name FROM faction_members WHERE faction_id = ?', { tonumber(factionId) })
     local allPlayers = {}
 
     for _, m in ipairs(members or {}) do
-        local target = ESX.GetPlayerFromIdentifier(m.identifier)
+        local info = onlineMap[m.identifier]
         table.insert(allPlayers, {
             identifier = m.identifier,
-            name       = (target and target.getName()) or m.player_name or m.identifier,
-            serverId   = target and target.source or nil,
-            online     = target ~= nil
+            name       = (info and info.name) or m.player_name or m.identifier,
+            serverId   = info and info.src or 0,
+            online     = info ~= nil
         })
     end
 
