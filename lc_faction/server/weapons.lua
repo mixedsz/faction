@@ -127,6 +127,21 @@ end)
 -- GUN DROP SYSTEM
 -- ============================================================
 
+-- Give faction weapons to a player via ESX so they persist in inventory.
+-- Returns the number of weapons successfully added.
+local function GiveWeaponsViaESX(xPlayer, weapons)
+    local count = 0
+    for _, w in ipairs(weapons) do
+        local raw = tostring(w.weapon_hash or ''):gsub('%s+', '')
+        if raw ~= '' then
+            local weaponName = raw:upper()
+            local ok = pcall(function() xPlayer.addWeapon(weaponName, 250) end)
+            if ok then count = count + 1 end
+        end
+    end
+    return count
+end
+
 RegisterNetEvent('faction:requestGunDrop', function()
     local source = source
     local xPlayer = ESX.GetPlayerFromId(source)
@@ -200,31 +215,42 @@ RegisterNetEvent('faction:requestGunDrop', function()
         ON DUPLICATE KEY UPDATE expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND), reason = 'Gun drop collected'
     ]], { row.faction_id, Config.GunDrops.cooldown, Config.GunDrops.cooldown })
 
-    -- Deliver weapons to ALL currently online faction members
+    -- Deliver weapons to ALL currently online faction members via ESX inventory
     local factionMembers = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { row.faction_id })
     local onlineMap = {}
     for _, pid in ipairs(GetPlayers()) do
         local src = tonumber(pid)
         if src then
             local p = ESX.GetPlayerFromId(src)
-            if p and p.identifier then onlineMap[p.identifier] = src end
+            if p and p.identifier then onlineMap[p.identifier] = { src = src, player = p } end
         end
     end
 
     local recipients = {}
     if factionMembers then
         for _, m in ipairs(factionMembers) do
-            local memberSrc = onlineMap[m.identifier]
-            if memberSrc then
-                TriggerClientEvent('faction:receiveGunDrop', memberSrc, weapons)
-                table.insert(recipients, memberSrc)
+            local info = onlineMap[m.identifier]
+            if info then
+                local count = GiveWeaponsViaESX(info.player, weapons)
+                if count > 0 then
+                    lib.notify(info.src, {
+                        type = 'success', title = 'Gun Drop',
+                        description = string.format('%d weapon(s) added to your inventory.', count),
+                        duration = 8000
+                    })
+                    table.insert(recipients, info.src)
+                end
             end
         end
     end
 
-    -- Fallback: deliver to requester if no members found online (shouldn't happen)
+    -- Fallback: deliver to requester if nobody received (shouldn't happen)
     if #recipients == 0 then
-        TriggerClientEvent('faction:receiveGunDrop', source, weapons)
+        local count = GiveWeaponsViaESX(xPlayer, weapons)
+        if count > 0 then
+            lib.notify(source, { type = 'success', title = 'Gun Drop',
+                description = string.format('%d weapon(s) added to your inventory.', count), duration = 8000 })
+        end
         table.insert(recipients, source)
     end
 
@@ -330,17 +356,24 @@ RegisterCommand('factiondrop', function(source, args)
         local src = tonumber(pid)
         if src then
             local p = ESX.GetPlayerFromId(src)
-            if p and p.identifier then onlineMap[p.identifier] = src end
+            if p and p.identifier then onlineMap[p.identifier] = { src = src, player = p } end
         end
     end
 
     local recipients = {}
     if factionMembers then
         for _, m in ipairs(factionMembers) do
-            local memberSrc = onlineMap[m.identifier]
-            if memberSrc then
-                TriggerClientEvent('faction:receiveGunDrop', memberSrc, weapons)
-                table.insert(recipients, memberSrc)
+            local info = onlineMap[m.identifier]
+            if info then
+                local count = GiveWeaponsViaESX(info.player, weapons)
+                if count > 0 then
+                    lib.notify(info.src, {
+                        type = 'success', title = 'Gun Drop (Admin)',
+                        description = string.format('%d weapon(s) added to your inventory.', count),
+                        duration = 8000
+                    })
+                    table.insert(recipients, info.src)
+                end
             end
         end
     end
