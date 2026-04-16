@@ -1,9 +1,24 @@
 -- War/Conflict management
 
--- Helper: get label for a faction
-local function GetFactionLabel(factionId)
-    local f = GetFactionById(factionId)
-    return f and f.label or 'Unknown'
+-- Helper: push updated wars list to ALL online admins
+local function PushConflictsToAdmins()
+    local conflicts = MySQL.query.await([[
+        SELECT c.*,
+               f1.label AS faction1_label,
+               f2.label AS faction2_label
+        FROM faction_conflicts c
+        JOIN faction_factions f1 ON f1.id = c.faction1_id
+        JOIN faction_factions f2 ON f2.id = c.faction2_id
+        ORDER BY c.status ASC, c.started_at DESC
+    ]])
+    local factions = MySQL.query.await('SELECT id, name, label FROM faction_factions ORDER BY label')
+
+    for _, playerId in ipairs(GetPlayers()) do
+        local src = tonumber(playerId)
+        if src and IsAdminPlayer(src) then
+            TriggerClientEvent('faction:adminReceiveActiveWars', src, conflicts or {}, factions or {})
+        end
+    end
 end
 
 -- Get conflicts for player's faction
@@ -31,7 +46,7 @@ RegisterNetEvent('faction:getConflicts', function()
 
     TriggerClientEvent('faction:receiveConflicts', source, {
         conflicts = conflicts or {},
-        alliances = {}  -- alliances system can be extended later
+        alliances = {}
     })
 end)
 
@@ -49,7 +64,6 @@ RegisterNetEvent('faction:adminGetActiveWars', function()
         JOIN faction_factions f2 ON f2.id = c.faction2_id
         ORDER BY c.status ASC, c.started_at DESC
     ]])
-
     local factions = MySQL.query.await('SELECT id, name, label FROM faction_factions ORDER BY label')
 
     TriggerClientEvent('faction:adminReceiveActiveWars', source, conflicts or {}, factions or {})
@@ -66,7 +80,7 @@ RegisterNetEvent('faction:adminSetConflictStatus', function(conflictId, status)
     local allowedStatuses = { active = true, ended = true, pending = true }
     if not allowedStatuses[status] then return end
 
-    MySQL.update('UPDATE faction_conflicts SET status = ?, ended_at = IF(? = "ended", NOW(), NULL) WHERE id = ?', {
+    MySQL.update("UPDATE faction_conflicts SET status = ?, ended_at = IF(? = 'ended', NOW(), NULL) WHERE id = ?", {
         status, status, cid
     })
 
@@ -78,7 +92,9 @@ RegisterNetEvent('faction:adminSetConflictStatus', function(conflictId, status)
     end
 
     lib.notify(source, { type = 'success', description = 'Conflict status updated.' })
-    TriggerClientEvent('faction:adminRefreshConflicts', source)
+
+    -- Push updated list to all online admins
+    PushConflictsToAdmins()
 end)
 
 -- Admin: create a conflict between two factions
@@ -96,7 +112,7 @@ RegisterNetEvent('faction:adminCreateConflict', function(faction1Id, faction2Id,
     local safeType   = tostring(conflictType or 'war'):sub(1, 32)
     local safeReason = reason and tostring(reason):sub(1, 500) or nil
 
-    -- Check if already in an active conflict
+    -- Check for existing active conflict
     local existing = MySQL.query.await([[
         SELECT id FROM faction_conflicts
         WHERE ((faction1_id = ? AND faction2_id = ?) OR (faction1_id = ? AND faction2_id = ?))
@@ -118,7 +134,9 @@ RegisterNetEvent('faction:adminCreateConflict', function(faction1Id, faction2Id,
     RefreshFactionWarCount(f2)
 
     lib.notify(source, { type = 'success', description = 'Conflict created.' })
-    TriggerClientEvent('faction:adminRefreshConflicts', source)
+
+    -- Push updated list to all online admins
+    PushConflictsToAdmins()
 end)
 
 -- Admin: end war by ID
@@ -138,6 +156,7 @@ RegisterNetEvent('faction:adminEndWar', function(warId)
     end
 
     lib.notify(source, { type = 'success', description = 'War ended.' })
+    PushConflictsToAdmins()
 end)
 
 -- Admin: set war duration (ends at start + duration seconds)
@@ -154,4 +173,5 @@ RegisterNetEvent('faction:adminSetWarDuration', function(warId, durationSeconds)
     ]], { dur, wid })
 
     lib.notify(source, { type = 'success', description = 'War duration set.' })
+    PushConflictsToAdmins()
 end)

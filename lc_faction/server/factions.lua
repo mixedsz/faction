@@ -1,10 +1,5 @@
 -- Faction CRUD operations and player faction data delivery
 
--- Get faction data for a player and send to client
-RegisterNetEvent('faction:getFactionData', function()
-    -- Handled in main.lua via SendFactionDataToPlayer
-end)
-
 -- Get the faction list for a CK request (other factions that have online members)
 RegisterNetEvent('faction:getFactionListForCK', function()
     local source = source
@@ -91,13 +86,15 @@ RegisterNetEvent('faction:requestCK', function(targetIdentifier, targetName, rea
 
     -- CK cooldown check
     local cooldown = MySQL.query.await([[
-        SELECT expires_at FROM faction_cooldowns
+        SELECT TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS secs_remaining
+        FROM faction_cooldowns
         WHERE faction_id = ? AND type = 'ck' AND expires_at > NOW()
         LIMIT 1
     ]], { row.faction_id })
 
     if cooldown and #cooldown > 0 then
-        lib.notify(source, { type = 'error', description = 'Your faction is on CK cooldown.' })
+        local mins = math.ceil(cooldown[1].secs_remaining / 60)
+        lib.notify(source, { type = 'error', description = string.format('CK cooldown active: %d minute(s) remaining.', mins) })
         return
     end
 
@@ -118,9 +115,4 @@ RegisterNetEvent('faction:requestCK', function(targetIdentifier, targetName, rea
     ]], { row.faction_id, Config.Conflict.ckCooldown, Config.Conflict.ckCooldown })
 
     lib.notify(source, { type = 'success', description = 'CK request submitted for admin review.' })
-end)
-
--- Receive faction list and deliver to admin (all factions)
-AddEventHandler('faction:adminGetFactions', function()
-    -- This event is triggered internally; actual handler in admin.lua
 end)

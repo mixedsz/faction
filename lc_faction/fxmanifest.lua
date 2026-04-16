@@ -12,6 +12,7 @@ shared_scripts {
 }
 
 server_scripts {
+    '@oxmysql/lib/MySQL.lua',
     'server/database.lua',
     'server/factions.lua',
     'server/members.lua',
@@ -42,7 +43,8 @@ files {
 
 dependencies {
     'es_extended',
-    'ox_lib'
+    'ox_lib',
+    'oxmysql'
 }
 
 lua54 'yes'

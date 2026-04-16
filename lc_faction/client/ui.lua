@@ -385,9 +385,7 @@ end
 
 -- Refresh weapons when notified (admin logged a weapon)
 RegisterNetEvent('faction:refreshWeapons', function()
-    -- Always refresh weapons data - members will see it next time they open the weapons tab
-    -- The data is cached, so when they open the menu it will show the new weapon
-    -- No need to force refresh if menu isn't open
+    TriggerServerEvent('faction:getWeapons')
 end)
 
 RegisterNetEvent('faction:receiveWeapons', function(weapons)
