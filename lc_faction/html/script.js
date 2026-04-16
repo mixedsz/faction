@@ -425,6 +425,80 @@
         return String(s).replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
     }
 
+    // ============================================================
+    // IN-NUI TOAST NOTIFICATION SYSTEM
+    // Matches the dark zinc UI design (#18181b background, zinc palette)
+    // ============================================================
+
+    function showToast(message, type) {
+        type = type || 'error';
+        var container = document.getElementById('nui-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'nui-toast-container';
+            container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:380px;';
+            document.body.appendChild(container);
+        }
+
+        var colors = {
+            success: { bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.45)',  accent: '#22c55e' },
+            error:   { bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.45)',  accent: '#ef4444' },
+            warning: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.45)', accent: '#f59e0b' },
+            info:    { bg: 'rgba(59,130,246,0.12)',  border: 'rgba(59,130,246,0.45)', accent: '#3b82f6' }
+        };
+        var icons = {
+            success: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+            error:   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+            warning: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            info:    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+        };
+
+        var c = colors[type] || colors.info;
+        var icon = icons[type] || icons.info;
+
+        var toast = document.createElement('div');
+        toast.style.cssText = 'background:#18181b;border:1px solid ' + c.border + ';border-left:3px solid ' + c.accent + ';border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px;pointer-events:auto;box-shadow:0 4px 24px rgba(0,0,0,0.6);transform:translateX(120%);transition:transform 0.28s cubic-bezier(0.34,1.56,0.64,1),opacity 0.28s ease;opacity:0;min-width:220px;';
+        toast.innerHTML = '<div style="color:' + c.accent + ';flex-shrink:0;margin-top:1px;">' + icon + '</div><div style="color:#e4e4e7;font-size:0.875rem;line-height:1.45;font-family:\'DM Sans\',sans-serif;flex:1;">' + escapeHtml(message) + '</div>';
+        container.appendChild(toast);
+
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                toast.style.transform = 'translateX(0)';
+                toast.style.opacity = '1';
+            });
+        });
+
+        setTimeout(function() {
+            toast.style.transform = 'translateX(120%)';
+            toast.style.opacity = '0';
+            setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+        }, 3800);
+    }
+
+    function showConfirm(message, onConfirm) {
+        var existing = document.getElementById('nui-confirm-overlay');
+        if (existing) existing.parentNode.removeChild(existing);
+
+        var overlay = document.createElement('div');
+        overlay.id = 'nui-confirm-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:99998;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = '<div style="background:#18181b;border:1px solid #3f3f46;border-radius:14px;padding:28px;max-width:360px;width:90%;box-shadow:0 8px 48px rgba(0,0,0,0.7);">'
+            + '<div style="color:#e4e4e7;font-size:0.9375rem;font-weight:500;margin-bottom:22px;line-height:1.5;font-family:\'DM Sans\',sans-serif;">' + escapeHtml(message) + '</div>'
+            + '<div style="display:flex;gap:10px;justify-content:flex-end;">'
+            + '<button id="nui-confirm-cancel" style="background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;padding:8px 22px;border-radius:8px;cursor:pointer;font-family:\'DM Sans\',sans-serif;font-size:0.875rem;">Cancel</button>'
+            + '<button id="nui-confirm-ok" style="background:#ef4444;border:none;color:#fff;padding:8px 22px;border-radius:8px;cursor:pointer;font-family:\'DM Sans\',sans-serif;font-size:0.875rem;font-weight:600;">Confirm</button>'
+            + '</div></div>';
+        document.body.appendChild(overlay);
+
+        document.getElementById('nui-confirm-ok').addEventListener('click', function() {
+            overlay.parentNode.removeChild(overlay);
+            onConfirm();
+        });
+        document.getElementById('nui-confirm-cancel').addEventListener('click', function() {
+            overlay.parentNode.removeChild(overlay);
+        });
+    }
+
     function renderCKTab(content) {
         if (!content || !content.step) {
             tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">Loading...</span></div>';
@@ -563,7 +637,7 @@
                 submitBtn.addEventListener('click', function() {
                     const reason = reasonInput.value.trim();
                     if (!reason) {
-                        alert('Please enter a reason for the CK request');
+                        showToast('Please enter a reason for the CK request', 'warning');
                         return;
                     }
                     post('submitCKRequest', {
@@ -692,7 +766,7 @@
                     const reportType = typeSelect.value;
                     const details = detailsInput.value.trim();
                     if (!details) {
-                        alert('Please enter report details');
+                        showToast('Please enter report details', 'warning');
                         return;
                     }
                     post('submitReport', {
@@ -800,7 +874,7 @@
                     const serialNumber = tabContent.querySelector('#serial-number').value.trim();
                     const weaponHash = tabContent.querySelector('#weapon-hash').value.trim();
                     if (!weaponName || !serialNumber) {
-                        alert('Please fill in weapon name and serial number');
+                        showToast('Please fill in weapon name and serial number', 'warning');
                         return;
                     }
                     post('adminSubmitWeapon', {
@@ -1074,7 +1148,7 @@
                             const serialNumber = tabContent.querySelector('#serial-number').value.trim();
                             const weaponHash = tabContent.querySelector('#weapon-hash').value.trim();
                             if (!weaponName || !serialNumber) {
-                                alert('Please fill in weapon name and serial number');
+                                showToast('Please fill in weapon name and serial number', 'warning');
                                 return;
                             }
                             post('adminSubmitWeapon', {
@@ -1294,7 +1368,7 @@
                     const stashId = tabContent.querySelector('#stash-id').value.trim() || null;
                     
                     if (!name || isNaN(x) || isNaN(y) || isNaN(z)) {
-                        alert('Please fill in all required fields');
+                        showToast('Please fill in the name and valid X, Y, Z coordinates', 'warning');
                         return;
                     }
                     
@@ -1881,8 +1955,10 @@
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 const ruleId = parseInt(this.getAttribute('data-rule-id'));
-                if (ruleId && confirm('Are you sure you want to delete this rule?')) {
-                    post('adminDeleteRule', { ruleId: ruleId });
+                if (ruleId) {
+                    showConfirm('Are you sure you want to delete this rule?', function() {
+                        post('adminDeleteRule', { ruleId: ruleId });
+                    });
                 }
             });
         });
@@ -1996,12 +2072,12 @@
             const order = parseInt(document.getElementById('rule-order').value) || 0;
             
             if (!title || !content) {
-                alert('Please fill in both title and content');
+                showToast('Please fill in both title and content', 'warning');
                 return;
             }
-            
+
             if (ruleType === 'faction' && !factionId) {
-                alert('Please select a faction');
+                showToast('Please select a faction for this rule', 'warning');
                 return;
             }
             
@@ -2197,12 +2273,12 @@
             const reason = document.getElementById('conflict-reason').value;
             
             if (!faction1Id || !faction2Id) {
-                alert('Please select both factions');
+                showToast('Please select both factions', 'warning');
                 return;
             }
-            
+
             if (faction1Id === faction2Id) {
-                alert('Cannot create conflict between the same faction');
+                showToast('Cannot create a conflict between the same faction', 'error');
                 return;
             }
             
@@ -2284,13 +2360,17 @@
         tabContent.innerHTML = html;
     }
     
-    function formatDate(dateString) {
-        if (!dateString) return 'Unknown';
+    function formatDate(dateValue) {
+        if (!dateValue) return 'Unknown';
         try {
-            const date = new Date(dateString);
+            // oxmysql may return Unix timestamp (number) or a date string
+            const date = (typeof dateValue === 'number')
+                ? new Date(dateValue * 1000)   // Unix seconds → ms
+                : new Date(dateValue);
+            if (isNaN(date.getTime())) return String(dateValue);
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         } catch (e) {
-            return dateString;
+            return String(dateValue);
         }
     }
     
@@ -2444,15 +2524,15 @@
             const reason = document.getElementById('cooldown-reason').value;
             
             if (!factionId) {
-                alert('Please select a faction');
+                showToast('Please select a faction', 'warning');
                 return;
             }
-            
+
             if (!cooldownType) {
-                alert('Please select a cooldown type');
+                showToast('Please select a cooldown type', 'warning');
                 return;
             }
-            
+
             post('adminSetCooldown', {
                 factionId: factionId,
                 cooldownType: cooldownType,
@@ -2656,7 +2736,7 @@
             const violationType = violation.violation_type || 'Unknown';
             const description = violation.description || 'No description';
             const sourceType = violation.source_type || 'violation';
-            const date = violation.created_at ? (typeof violation.created_at === 'string' ? violation.created_at.substring(0, 10) : 'Recent') : 'Unknown';
+            const date = formatDate(violation.created_at);
             
             html += `
                 <div class="list-item">

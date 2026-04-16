@@ -66,6 +66,7 @@ RegisterNetEvent('faction:checkTerritory', function(coords)
         playerCurrentTerritory[source] = newId
         if inTerritory then
             TriggerClientEvent('faction:enterTerritory', source, {
+                id            = inTerritory.id,
                 name          = inTerritory.name,
                 type          = inTerritory.type,
                 faction_label = inTerritory.faction_label

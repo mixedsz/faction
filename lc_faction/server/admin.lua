@@ -350,9 +350,16 @@ RegisterNetEvent('faction:adminGetViolations', function()
     if not IsAdminPlayer(source) then return end
 
     local violations = MySQL.query.await([[
-        SELECT v.*, f.label AS faction_label
+        SELECT v.id, v.faction_id, v.member_identifier,
+               v.type AS violation_type,
+               v.details AS description,
+               'admin' AS source_type,
+               DATE_FORMAT(v.created_at, '%Y-%m-%d') AS created_at,
+               f.label AS faction_label,
+               COALESCE(fm.player_name, v.member_identifier) AS member_name
         FROM faction_violations v
         LEFT JOIN faction_factions f ON f.id = v.faction_id
+        LEFT JOIN faction_members fm ON fm.identifier = v.member_identifier AND fm.faction_id = v.faction_id
         ORDER BY v.created_at DESC
         LIMIT 100
     ]])

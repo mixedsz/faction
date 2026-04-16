@@ -12,7 +12,7 @@ RegisterNetEvent('faction:getFactionListForCK', function()
         return
     end
 
-    -- Only show factions that have at least one online player
+    -- Show all other factions (online-member filter happens when selecting players)
     local factions = MySQL.query.await([[
         SELECT DISTINCT f.id, f.name, f.label
         FROM faction_factions f
@@ -21,19 +21,7 @@ RegisterNetEvent('faction:getFactionListForCK', function()
         ORDER BY f.label
     ]], { row.faction_id })
 
-    -- Filter to factions with online players
-    local result = {}
-    for _, f in ipairs(factions or {}) do
-        local members = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { f.id })
-        for _, m in ipairs(members or {}) do
-            if ESX.GetPlayerFromIdentifier(m.identifier) then
-                table.insert(result, f)
-                break
-            end
-        end
-    end
-
-    TriggerClientEvent('faction:receiveFactionListForCK', source, result)
+    TriggerClientEvent('faction:receiveFactionListForCK', source, factions or {})
 end)
 
 -- Get online players from a specific faction for CK selection
