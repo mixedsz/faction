@@ -200,22 +200,47 @@ RegisterNetEvent('faction:requestGunDrop', function()
         ON DUPLICATE KEY UPDATE expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND), reason = 'Gun drop collected'
     ]], { row.faction_id, Config.GunDrops.cooldown, Config.GunDrops.cooldown })
 
-    -- Deliver weapons to player via client event (GTA native GiveWeaponToPed)
-    TriggerClientEvent('faction:receiveGunDrop', source, weapons)
+    -- Deliver weapons to ALL currently online faction members
+    local factionMembers = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { row.faction_id })
+    local onlineMap = {}
+    for _, pid in ipairs(GetPlayers()) do
+        local src = tonumber(pid)
+        if src then
+            local p = ESX.GetPlayerFromId(src)
+            if p and p.identifier then onlineMap[p.identifier] = src end
+        end
+    end
 
-    -- Notify all online faction members
+    local recipients = {}
+    if factionMembers then
+        for _, m in ipairs(factionMembers) do
+            local memberSrc = onlineMap[m.identifier]
+            if memberSrc then
+                TriggerClientEvent('faction:receiveGunDrop', memberSrc, weapons)
+                table.insert(recipients, memberSrc)
+            end
+        end
+    end
+
+    -- Fallback: deliver to requester if no members found online (shouldn't happen)
+    if #recipients == 0 then
+        TriggerClientEvent('faction:receiveGunDrop', source, weapons)
+        table.insert(recipients, source)
+    end
+
+    -- Announce to the faction who initiated and how many received
     NotifyFactionMembers(row.faction_id, 'faction:receiveNotification', {
-        type        = 'info',
+        type        = 'success',
         title       = 'Gun Drop',
-        description = xPlayer.getName() .. ' collected the faction gun drop.'
+        description = string.format('%s triggered a gun drop — %d online member(s) armed up.', xPlayer.getName(), #recipients)
     })
 
     -- Webhook
     if Config.Webhooks.enabled and Config.Webhooks.weaponLogging ~= '' then
         PerformHttpRequest(Config.Webhooks.weaponLogging, function() end, 'POST',
             json.encode({ content = string.format(
-                '**Gun Drop Collected** | Faction: %s | By: %s | Weapons delivered: %d',
-                faction.label, xPlayer.getName(), #weapons) }),
+                '**Gun Drop** | Faction: %s | Triggered by: %s | Recipients: %d | Weapons per member: %d',
+                faction.label, xPlayer.getName(), #recipients, #weapons) }),
             { ['Content-Type'] = 'application/json' })
     end
 end)

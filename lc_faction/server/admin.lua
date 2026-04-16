@@ -104,6 +104,23 @@ RegisterNetEvent('faction:adminUpdateFaction', function(factionId, updates)
     MySQL.update('UPDATE faction_factions SET ' .. table.concat(sets, ', ') .. ' WHERE id = ?', vals)
 
     lib.notify(source, { type = 'success', description = 'Faction updated.' })
+
+    -- Push fresh faction data to all online members so their cache stays current
+    local members = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { fid })
+    if members and #members > 0 then
+        local onlineMap = {}
+        for _, pid in ipairs(GetPlayers()) do
+            local src = tonumber(pid)
+            if src then
+                local p = ESX.GetPlayerFromId(src)
+                if p and p.identifier then onlineMap[p.identifier] = src end
+            end
+        end
+        for _, m in ipairs(members) do
+            local memberSrc = onlineMap[m.identifier]
+            if memberSrc then SendFactionDataToPlayer(memberSrc) end
+        end
+    end
 end)
 
 -- ============================================================

@@ -2,6 +2,7 @@
 
 local PlayerData = {}
 currentFaction = nil -- Make it global so ui.lua can access it
+local awaitingReputationRefresh = false
 
 -- Import functions from ui.lua (deprecated - now handled in NUI)
 function OpenFactionReportTab()
@@ -33,8 +34,22 @@ RegisterKeyMapping('faction', 'Open Faction Menu', 'keyboard', Config.UI.keybind
 -- Receive faction data
 RegisterNetEvent('faction:receiveFactionData', function(data)
     currentFaction = data
-    -- Only update NUI if it's already open (don't auto-open)
-    -- The NUI will be opened manually via the /faction command
+    -- If the reputation tab is waiting for fresh data, push it now
+    if awaitingReputationRefresh and data and data.faction then
+        awaitingReputationRefresh = false
+        local faction   = data.faction
+        local rankLabel = Config.Ranks[data.rank] and Config.Ranks[data.rank].label or data.rank
+        SendNUIMessage({
+            action  = 'updateTab',
+            tab     = 'reputation',
+            content = {
+                reputation      = faction.reputation or 0,
+                rank            = rankLabel,
+                activeWars      = (faction.active_wars or 0) .. ' / ' .. (faction.max_wars or 2),
+                gunDropEligible = faction.gun_drop_eligible and 'Yes' or 'No'
+            }
+        })
+    end
 end)
 
 -- Open faction menu (called after server verifies permissions)
@@ -430,22 +445,9 @@ RegisterNUICallback('requestTabData', function(data, cb)
             TriggerServerEvent('faction:getFactionListForCK')
         end
     elseif tab == 'reputation' then
-        -- Reputation tab - send current faction data
-        if currentFaction and currentFaction.faction then
-            local faction = currentFaction.faction
-            local playerRank = currentFaction.rank
-            local rankLabel = Config.Ranks[playerRank] and Config.Ranks[playerRank].label or playerRank
-            SendNUIMessage({
-                action = 'updateTab',
-                tab = 'reputation',
-                content = {
-                    reputation = faction.reputation or 0,
-                    rank = rankLabel,
-                    activeWars = (faction.active_wars or 0) .. ' / ' .. (faction.max_wars or 2),
-                    gunDropEligible = faction.gun_drop_eligible and 'Yes' or 'No'
-                }
-            })
-        end
+        -- Always fetch fresh data from server so admin changes are reflected immediately
+        awaitingReputationRefresh = true
+        TriggerServerEvent('faction:getFactionData')
     elseif tab == 'violations' and isAdmin then
         TriggerServerEvent('faction:adminGetViolations')
     elseif tab == 'factions' and isAdmin then
