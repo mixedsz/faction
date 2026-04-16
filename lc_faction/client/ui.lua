@@ -219,30 +219,10 @@ function OpenTerritoryTab()
 end
 
 RegisterNetEvent('faction:receiveTerritory', function(territory)
-    local items = {}
-    
-    if #territory == 0 then
-        table.insert(items, 'No Territory Claimed - Claim territory to get started')
-    else
-        for _, terr in ipairs(territory) do
-            local nearbyText = ''
-            if terr.nearby_factions and #terr.nearby_factions > 0 then
-                nearbyText = ' | Nearby: ' .. terr.nearby_factions[1].faction.label
-            end
-            
-            table.insert(items, string.format('<strong>%s</strong><br>Type: %s | Members: %d | Sell Time: %ds%s', 
-                terr.name,
-                terr.type, 
-                terr.active_members or 0, 
-                terr.sell_time or 0,
-                nearbyText))
-        end
-    end
-    
     SendNUIMessage({
         action = 'updateTab',
         tab = 'territory',
-        content = { items = items }
+        content = { territories = territory or {} }
     })
 end)
 

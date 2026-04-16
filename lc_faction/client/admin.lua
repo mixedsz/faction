@@ -209,6 +209,20 @@ RegisterNetEvent('faction:adminReceiveFactionsForTerritory', function(factions)
     })
 end)
 
+-- Receive territory list for a specific faction (manage view)
+RegisterNetEvent('faction:adminReceiveFactionTerritory', function(factionId, factionLabel, territories)
+    SendNUIMessage({
+        action = 'updateTab',
+        tab = 'territory',
+        content = {
+            step = 'manage_territories',
+            factionId = factionId,
+            factionLabel = factionLabel,
+            territories = territories or {}
+        }
+    })
+end)
+
 function AssignTerritoryToFaction(factionId, factionLabel)
     local input = lib.inputDialog('Assign Territory', {
         {

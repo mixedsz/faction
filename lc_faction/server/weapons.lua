@@ -285,27 +285,30 @@ CreateThread(function()
 end)
 
 -- ============================================================
--- ADMIN: /factiondrop [factionId]
+-- ADMIN: /factiondrop [faction_name]
 -- Forces an immediate gun drop for a faction and resets the timer.
 -- ============================================================
 RegisterCommand('factiondrop', function(source, args)
-    if source == 0 then return end -- console not supported
+    if source == 0 then return end
     if not IsAdminPlayer(source) then
         lib.notify(source, { type = 'error', description = 'No permission.' })
         return
     end
 
-    local fid = tonumber(args[1])
-    if not fid then
-        lib.notify(source, { type = 'error', description = 'Usage: /factiondrop [faction_id]' })
+    local input = args[1] and tostring(args[1]):lower() or nil
+    if not input then
+        lib.notify(source, { type = 'error', description = 'Usage: /factiondrop [faction_name]' })
         return
     end
 
-    local faction = GetFactionById(fid)
+    local rows = MySQL.query.await('SELECT * FROM faction_factions WHERE LOWER(name) = ? OR LOWER(label) = ? LIMIT 1', { input, input })
+    local faction = rows and rows[1] or nil
     if not faction then
-        lib.notify(source, { type = 'error', description = 'Faction ID not found.' })
+        lib.notify(source, { type = 'error', description = 'Faction "' .. input .. '" not found. Use the faction name or label shown in /factionadmin.' })
         return
     end
+
+    local fid = faction.id
 
     local weapons = MySQL.query.await([[
         SELECT weapon_name, serial_number, weapon_hash
@@ -319,10 +322,8 @@ RegisterCommand('factiondrop', function(source, args)
         return
     end
 
-    -- Reset cooldown timer
     MySQL.update('DELETE FROM faction_cooldowns WHERE faction_id = ? AND type = ?', { fid, 'gun_drop' })
 
-    -- Deliver to all online members
     local factionMembers = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { fid })
     local onlineMap = {}
     for _, pid in ipairs(GetPlayers()) do
@@ -344,14 +345,12 @@ RegisterCommand('factiondrop', function(source, args)
         end
     end
 
-    -- Start fresh cooldown
     MySQL.query([[
         INSERT INTO faction_cooldowns (faction_id, type, expires_at, reason)
         VALUES (?, 'gun_drop', DATE_ADD(NOW(), INTERVAL ? SECOND), 'Admin forced gun drop')
         ON DUPLICATE KEY UPDATE expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND), reason = 'Admin forced gun drop'
     ]], { fid, Config.GunDrops.cooldown, Config.GunDrops.cooldown })
 
-    -- Notify faction members
     NotifyFactionMembers(fid, 'faction:receiveNotification', {
         type        = 'success',
         title       = 'Gun Drop (Admin)',

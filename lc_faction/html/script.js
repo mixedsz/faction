@@ -1265,6 +1265,34 @@
         tabContent.innerHTML = html;
     }
 
+    function renderMemberTerritoryTab(content) {
+        const territories = content.territories || content.items || [];
+        if (territories.length === 0) {
+            tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">No territory claimed by your faction yet.</span></div>';
+            return;
+        }
+        let html = '<div class="list-container" style="display:flex;flex-direction:column;gap:0.75rem;">';
+        territories.forEach(function(terr) {
+            const typeLabel = { turf: 'Turf', stash: 'Stash', shop: 'Shop', corner: 'Corner', trap_house: 'Trap House' }[terr.type] || terr.type || 'Unknown';
+            const nearby = (terr.nearby_factions || []).map(function(nb) { return nb.faction && nb.faction.label; }).filter(Boolean);
+            const nearbyHtml = nearby.length > 0
+                ? `<span style="color:#f59e0b;">⚠ Nearby: ${escapeHtml(nearby.join(', '))}</span>`
+                : '<span style="color:#71717a;">No nearby rival territory</span>';
+            html += `
+                <div style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:14px 16px;">
+                    <div style="font-weight:600;color:#fff;font-size:1rem;margin-bottom:6px;">${escapeHtml(terr.name || 'Unnamed')}</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:0.8rem;color:#a1a1aa;">
+                        <span>Type: <strong style="color:#e4e4e7;">${escapeHtml(typeLabel)}</strong></span>
+                        <span>Radius: <strong style="color:#e4e4e7;">${terr.radius || 50}m</strong></span>
+                        <span>Coords: <strong style="color:#e4e4e7;">${parseFloat(terr.x||0).toFixed(1)}, ${parseFloat(terr.y||0).toFixed(1)}, ${parseFloat(terr.z||0).toFixed(1)}</strong></span>
+                    </div>
+                    <div style="margin-top:6px;font-size:0.78rem;">${nearbyHtml}</div>
+                </div>`;
+        });
+        html += '</div>';
+        tabContent.innerHTML = html;
+    }
+
     function renderAdminTerritoryTab(content) {
         if (content.step === 'select_faction') {
             const factions = content.factions || [];
@@ -1422,9 +1450,69 @@
             }
             if (cancelBtn) {
                 cancelBtn.addEventListener('click', function() {
+                    if (content.factionId) {
+                        post('adminSelectTerritoryFaction', { factionId: content.factionId, factionLabel: content.factionLabel });
+                    } else {
+                        post('requestTabData', { tab: 'territory', isAdmin: true });
+                    }
+                });
+            }
+        } else if (content.step === 'manage_territories') {
+            const territories = content.territories || [];
+            const fLabel = escapeHtml(content.factionLabel || 'Unknown');
+            let html = `
+                <div class="report-container">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                        <h3 style="margin:0;">Territory — ${fLabel}</h3>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn-submit" id="btn-add-territory" style="padding:8px 14px;font-size:0.82rem;">+ Add Territory</button>
+                            <button class="btn-cancel" id="btn-back-factions" style="padding:8px 14px;font-size:0.82rem;">← Back</button>
+                        </div>
+                    </div>`;
+            if (territories.length === 0) {
+                html += '<div class="empty-state"><span class="empty-text">No territories assigned to this faction.</span></div>';
+            } else {
+                html += '<div style="display:flex;flex-direction:column;gap:0.6rem;">';
+                territories.forEach(function(terr) {
+                    const typeLabel = { turf: 'Turf', stash: 'Stash', shop: 'Shop', corner: 'Corner', trap_house: 'Trap House' }[terr.type] || terr.type || 'Unknown';
+                    html += `
+                        <div style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+                            <div>
+                                <div style="font-weight:600;color:#fff;margin-bottom:4px;">${escapeHtml(terr.name || 'Unnamed')}</div>
+                                <div style="font-size:0.78rem;color:#a1a1aa;">
+                                    ${escapeHtml(typeLabel)} &bull;
+                                    Radius: ${terr.radius || 50}m &bull;
+                                    ${parseFloat(terr.x||0).toFixed(1)}, ${parseFloat(terr.y||0).toFixed(1)}, ${parseFloat(terr.z||0).toFixed(1)}
+                                </div>
+                            </div>
+                            <button class="btn-cancel" data-terr-id="${terr.id}" style="padding:6px 12px;font-size:0.78rem;background:#7f1d1d;border-color:#991b1b;">Delete</button>
+                        </div>`;
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+            tabContent.innerHTML = html;
+
+            const addBtn = tabContent.querySelector('#btn-add-territory');
+            if (addBtn) {
+                addBtn.addEventListener('click', function() {
+                    post('adminAddTerritory', { factionId: content.factionId, factionLabel: content.factionLabel });
+                });
+            }
+            const backBtn = tabContent.querySelector('#btn-back-factions');
+            if (backBtn) {
+                backBtn.addEventListener('click', function() {
                     post('requestTabData', { tab: 'territory', isAdmin: true });
                 });
             }
+            tabContent.querySelectorAll('[data-terr-id]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const tid = parseInt(this.getAttribute('data-terr-id'));
+                    if (tid) {
+                        post('adminDeleteTerritory', { territoryId: tid, factionId: content.factionId });
+                    }
+                });
+            });
         }
     }
 
@@ -3021,7 +3109,7 @@
                         tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">Loading...</span></div>';
                     }
                 } else {
-                    renderList(content.items || [], 'No territory claimed');
+                    renderMemberTerritoryTab(content);
                 }
             } else if (tab === 'report') {
                 renderReportTab(content);
