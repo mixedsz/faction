@@ -1,17 +1,18 @@
--- Weapon tracking and logging
+-- Weapon tracking, logging, violation enforcement, and gun drop system
 
 -- Possession scan cache: identifier -> { lastScan = timestamp, weapons = {} }
 local possessionCache = {}
 
+-- Violation cooldown cache: identifier -> last violation log timestamp (os.time)
+local violationTimestamps = {}
+
 -- Helper: get current weapon inventory for a player from ox_inventory
 local function GetPlayerWeaponInventory(identifier)
-    -- Use ox_inventory exports to get items for an offline or online player
     local items = exports.ox_inventory and exports.ox_inventory:GetInventoryItems('player', identifier) or {}
     local weapons = {}
     if type(items) == 'table' then
         for _, item in ipairs(items) do
             if item and item.name then
-                -- ox_inventory weapon items typically start with 'weapon_'
                 local name = tostring(item.name):lower()
                 if name:sub(1, 7) == 'weapon_' then
                     local serial = item.metadata and item.metadata.serial or nil
@@ -53,7 +54,6 @@ RegisterNetEvent('faction:getWeapons', function()
         if w.holder_identifier then
             local cached = possessionCache[w.holder_identifier]
             if cached and (now - cached.lastScan) < Config.Weapons.possessionCacheMaxAge then
-                -- Check if holder still has the weapon by serial
                 w.inPossession = false
                 for _, cw in ipairs(cached.weapons) do
                     if cw.serial == w.serial_number then
@@ -76,10 +76,9 @@ RegisterNetEvent('faction:logWeaponUsage', function(weaponHash, coords, isAlterc
 
     if not Config.Weapons.logOnShoot then return end
 
-    local row = GetPlayerFactionData(xPlayer.identifier)
-    local factionId = row and row.faction_id or nil
-
-    local hashStr = tostring(weaponHash)
+    local row        = GetPlayerFactionData(xPlayer.identifier)
+    local factionId  = row and row.faction_id or nil
+    local hashStr    = tostring(weaponHash)
     local cx = tonumber(coords and coords.x) or 0
     local cy = tonumber(coords and coords.y) or 0
     local cz = tonumber(coords and coords.z) or 0
@@ -95,18 +94,128 @@ RegisterNetEvent('faction:logWeaponUsage', function(weaponHash, coords, isAlterc
         isViolation = (not registered or #registered == 0)
     end
 
+    -- Enforce violation cooldown — suppress duplicate logs within the cooldown window
+    if isViolation then
+        local now      = os.time()
+        local lastTime = violationTimestamps[xPlayer.identifier] or 0
+        if (now - lastTime) < Config.Weapons.violationCooldown then
+            isViolation = false -- already logged recently, skip
+        else
+            violationTimestamps[xPlayer.identifier] = now
+        end
+    end
+
     MySQL.insert([[
         INSERT INTO faction_weapon_logs (faction_id, member_identifier, weapon_hash, is_altercation, is_violation, x, y, z)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ]], { factionId, xPlayer.identifier, hashStr, isAltercation and 1 or 0, isViolation and 1 or 0, cx, cy, cz })
 
-    -- Webhook for invalid shootout
+    -- Webhook for illegal weapon in altercation
     if isViolation and isAltercation and Config.Weapons.illegalPenalty then
         if Config.Webhooks.enabled and Config.Webhooks.invalidShootout ~= '' then
             PerformHttpRequest(Config.Webhooks.invalidShootout, function() end, 'POST',
-                json.encode({ content = string.format('**Illegal Weapon Used in Altercation** by %s | WeaponHash: %s', xPlayer.getName(), hashStr) }),
+                json.encode({ content = string.format(
+                    '**Illegal Weapon Used in Altercation** | Player: %s | WeaponHash: %s | Location: %.1f, %.1f, %.1f',
+                    xPlayer.getName(), hashStr, cx, cy, cz) }),
                 { ['Content-Type'] = 'application/json' })
         end
+    end
+end)
+
+-- ============================================================
+-- GUN DROP SYSTEM
+-- ============================================================
+
+RegisterNetEvent('faction:requestGunDrop', function()
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    if not xPlayer then return end
+
+    if not Config.GunDrops.enabled then
+        lib.notify(source, { type = 'error', description = 'Gun drops are currently disabled.' })
+        return
+    end
+
+    local row = GetPlayerFactionData(xPlayer.identifier)
+    if not row then
+        lib.notify(source, { type = 'error', description = 'You are not in a faction.' })
+        return
+    end
+
+    -- Rank check: boss or big_homie only
+    if row.rank ~= 'boss' and row.rank ~= 'big_homie' then
+        lib.notify(source, { type = 'error', description = 'Only Boss or Big Homie can collect gun drops.' })
+        return
+    end
+
+    -- Eligibility flag check
+    local faction = GetFactionById(row.faction_id)
+    if not faction or faction.gun_drop_eligible ~= 1 then
+        lib.notify(source, { type = 'error', description = 'Your faction is not marked as gun drop eligible.' })
+        return
+    end
+
+    -- Minimum reputation check
+    if (faction.reputation or 0) < Config.GunDrops.minReputation then
+        lib.notify(source, { type = 'error', description = string.format(
+            'Need at least %d reputation for a gun drop (current: %d).',
+            Config.GunDrops.minReputation, faction.reputation) })
+        return
+    end
+
+    -- Cooldown check
+    local cooldown = MySQL.query.await([[
+        SELECT TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS secs_remaining
+        FROM faction_cooldowns
+        WHERE faction_id = ? AND type = 'gun_drop' AND expires_at > NOW()
+        LIMIT 1
+    ]], { row.faction_id })
+
+    if cooldown and #cooldown > 0 then
+        local hrs  = math.floor(cooldown[1].secs_remaining / 3600)
+        local mins = math.floor((cooldown[1].secs_remaining % 3600) / 60)
+        lib.notify(source, { type = 'error', description = string.format(
+            'Gun drop on cooldown: %dh %dm remaining.', hrs, mins) })
+        return
+    end
+
+    -- Get faction's registered weapons that have a hash (so they can be given as GTA weapons)
+    local weapons = MySQL.query.await([[
+        SELECT weapon_name, serial_number, weapon_hash
+        FROM faction_weapons
+        WHERE faction_id = ? AND weapon_hash IS NOT NULL AND weapon_hash != ''
+        ORDER BY weapon_name
+    ]], { row.faction_id })
+
+    if not weapons or #weapons == 0 then
+        lib.notify(source, { type = 'error', description = 'No registered weapons with valid hashes found. Ask an admin to register weapons with their weapon hash.' })
+        return
+    end
+
+    -- Apply cooldown BEFORE delivery to prevent double-claim on lag
+    MySQL.query([[
+        INSERT INTO faction_cooldowns (faction_id, type, expires_at, reason)
+        VALUES (?, 'gun_drop', DATE_ADD(NOW(), INTERVAL ? SECOND), 'Gun drop collected')
+        ON DUPLICATE KEY UPDATE expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND), reason = 'Gun drop collected'
+    ]], { row.faction_id, Config.GunDrops.cooldown, Config.GunDrops.cooldown })
+
+    -- Deliver weapons to player via client event (GTA native GiveWeaponToPed)
+    TriggerClientEvent('faction:receiveGunDrop', source, weapons)
+
+    -- Notify all online faction members
+    NotifyFactionMembers(row.faction_id, 'faction:receiveNotification', {
+        type        = 'info',
+        title       = 'Gun Drop',
+        description = xPlayer.getName() .. ' collected the faction gun drop.'
+    })
+
+    -- Webhook
+    if Config.Webhooks.enabled and Config.Webhooks.weaponLogging ~= '' then
+        PerformHttpRequest(Config.Webhooks.weaponLogging, function() end, 'POST',
+            json.encode({ content = string.format(
+                '**Gun Drop Collected** | Faction: %s | By: %s | Weapons delivered: %d',
+                faction.label, xPlayer.getName(), #weapons) }),
+            { ['Content-Type'] = 'application/json' })
     end
 end)
 
@@ -115,24 +224,21 @@ CreateThread(function()
     while true do
         Wait(Config.Weapons.possessionScanInterval * 1000)
 
-        -- Get all registered weapons grouped by faction
         local weapons = MySQL.query.await('SELECT id, faction_id, serial_number, weapon_hash FROM faction_weapons')
         if not weapons then goto continue end
 
-        -- Get all faction member identifiers
         local allMembers = MySQL.query.await('SELECT DISTINCT identifier, faction_id FROM faction_members')
         if not allMembers then goto continue end
 
         local now = os.time()
 
         for _, member in ipairs(allMembers) do
-            -- Only scan online players (offline inventory scanning is slow)
             local xPlayer = ESX.GetPlayerFromIdentifier(member.identifier)
             if xPlayer then
                 local inv = GetPlayerWeaponInventory(member.identifier)
                 possessionCache[member.identifier] = { lastScan = now, weapons = inv }
 
-                -- Update holder_name/identifier on matched weapons
+                -- Update holder on matched weapons by serial number
                 for _, w in ipairs(weapons) do
                     if w.faction_id == member.faction_id then
                         for _, iw in ipairs(inv) do
