@@ -127,18 +127,46 @@ end)
 -- GUN DROP SYSTEM
 -- ============================================================
 
--- Give faction weapons to a player via ESX so they persist in inventory.
--- Returns the number of weapons successfully added.
+-- Give faction weapons to a player. Tries ox_inventory first, then ESX addWeapon.
+-- Returns the number of weapons given (based on actual API success).
 local function GiveWeaponsViaESX(xPlayer, weapons)
+    local src   = xPlayer.source
+    local ident = xPlayer.identifier
     local count = 0
+
+    print(string.format('[faction:gunDrop] Giving %d weapon(s) to %s (src %d)', #weapons, ident, src or -1))
+
     for _, w in ipairs(weapons) do
         local raw = tostring(w.weapon_hash or ''):gsub('%s+', '')
-        if raw ~= '' then
-            local weaponName = raw:upper()
-            local ok = pcall(function() xPlayer.addWeapon(weaponName, 250) end)
-            if ok then count = count + 1 end
+        print(string.format('[faction:gunDrop]  -> weapon "%s" | hash/spawn: "%s"', tostring(w.weapon_name), raw))
+
+        if raw == '' then
+            print('[faction:gunDrop]     SKIP: empty hash')
+        else
+            local itemName = raw:lower()   -- ox_inventory uses lowercase item names
+            local weaponNameUpper = raw:upper()
+
+            -- Try ox_inventory (present on this server)
+            local hasOxInv = exports.ox_inventory ~= nil
+            if hasOxInv then
+                local ok, err = pcall(function()
+                    local success = exports.ox_inventory:AddItem(src, itemName, 1)
+                    print(string.format('[faction:gunDrop]     ox_inventory:AddItem("%s") -> %s', itemName, tostring(success)))
+                    if success then count = count + 1 end
+                end)
+                if not ok then
+                    print(string.format('[faction:gunDrop]     ox_inventory ERROR: %s', tostring(err)))
+                end
+            else
+                -- Fallback: ESX addWeapon
+                local ok, err = pcall(function() xPlayer.addWeapon(weaponNameUpper, 250) end)
+                print(string.format('[faction:gunDrop]     xPlayer.addWeapon("%s") pcall ok=%s err=%s', weaponNameUpper, tostring(ok), tostring(err)))
+                if ok then count = count + 1 end
+            end
         end
     end
+
+    print(string.format('[faction:gunDrop] Done — %d weapon(s) given to %s', count, ident))
     return count
 end
 
