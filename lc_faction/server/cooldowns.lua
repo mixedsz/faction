@@ -23,7 +23,8 @@ RegisterNetEvent('faction:getCooldowns', function()
 
     -- Active cooldowns
     local cooldowns = MySQL.query.await([[
-        SELECT id, type, expires_at, reason,
+        SELECT id, type, reason,
+               DATE_FORMAT(expires_at, '%Y-%m-%d %H:%i:%s') AS ends_at,
                GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS seconds_remaining
         FROM faction_cooldowns
         WHERE faction_id = ? AND expires_at > NOW()
@@ -51,8 +52,10 @@ RegisterNetEvent('faction:adminGetCooldowns', function()
     if not IsAdminPlayer(source) then return end
 
     local cooldowns = MySQL.query.await([[
-        SELECT cd.*, f.label AS faction_label,
-               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), cd.expires_at)) AS seconds_remaining
+        SELECT cd.id, cd.faction_id, cd.type, cd.reason,
+               DATE_FORMAT(cd.expires_at, '%Y-%m-%d %H:%i:%s') AS ends_at,
+               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), cd.expires_at)) AS seconds_remaining,
+               f.label AS faction_label
         FROM faction_cooldowns cd
         JOIN faction_factions f ON f.id = cd.faction_id
         WHERE cd.expires_at > NOW()

@@ -245,7 +245,9 @@ RegisterNetEvent('faction:getRules', function()
     end
 
     local rules = MySQL.query.await([[
-        SELECT id, title, content, is_global, faction_id, `order`
+        SELECT id, faction_id, is_global, `order`,
+               title AS rule_title,
+               content AS rule_content
         FROM faction_rules
         WHERE is_global = 1 OR faction_id = ?
         ORDER BY is_global DESC, `order` ASC, id ASC

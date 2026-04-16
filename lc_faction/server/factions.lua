@@ -12,28 +12,15 @@ RegisterNetEvent('faction:getFactionListForCK', function()
         return
     end
 
-    -- Only show factions that have at least one online player
+    -- Show ALL factions (including own) so a boss can CK any member regardless of faction
     local factions = MySQL.query.await([[
         SELECT DISTINCT f.id, f.name, f.label
         FROM faction_factions f
         JOIN faction_members fm ON fm.faction_id = f.id
-        WHERE f.id != ?
         ORDER BY f.label
-    ]], { row.faction_id })
+    ]])
 
-    -- Filter to factions with online players
-    local result = {}
-    for _, f in ipairs(factions or {}) do
-        local members = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { f.id })
-        for _, m in ipairs(members or {}) do
-            if ESX.GetPlayerFromIdentifier(m.identifier) then
-                table.insert(result, f)
-                break
-            end
-        end
-    end
-
-    TriggerClientEvent('faction:receiveFactionListForCK', source, result)
+    TriggerClientEvent('faction:receiveFactionListForCK', source, factions or {})
 end)
 
 -- Get online players from a specific faction for CK selection
@@ -48,21 +35,32 @@ RegisterNetEvent('faction:getFactionPlayersForCK', function(factionId)
         return
     end
 
-    local members = MySQL.query.await('SELECT identifier, player_name FROM faction_members WHERE faction_id = ?', { tonumber(factionId) })
-    local onlinePlayers = {}
-
-    for _, m in ipairs(members or {}) do
-        local target = ESX.GetPlayerFromIdentifier(m.identifier)
-        if target then
-            table.insert(onlinePlayers, {
-                identifier = m.identifier,
-                name       = target.getName(),
-                serverId   = target.source
-            })
+    -- Build a fast lookup of online players by identifier
+    local onlineMap = {}
+    for _, pid in ipairs(GetPlayers()) do
+        local src = tonumber(pid)
+        if src then
+            local p = ESX.GetPlayerFromId(src)
+            if p and p.identifier then
+                onlineMap[p.identifier] = { src = src, name = p.getName() }
+            end
         end
     end
 
-    TriggerClientEvent('faction:receiveFactionPlayersForCK', source, onlinePlayers, faction.label)
+    local members = MySQL.query.await('SELECT identifier, player_name FROM faction_members WHERE faction_id = ?', { tonumber(factionId) })
+    local allPlayers = {}
+
+    for _, m in ipairs(members or {}) do
+        local info = onlineMap[m.identifier]
+        table.insert(allPlayers, {
+            identifier = m.identifier,
+            name       = (info and info.name) or m.player_name or m.identifier,
+            serverId   = info and info.src or 0,
+            online     = info ~= nil
+        })
+    end
+
+    TriggerClientEvent('faction:receiveFactionPlayersForCK', source, allPlayers, faction.label)
 end)
 
 -- Submit a CK request

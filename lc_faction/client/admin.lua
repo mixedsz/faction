@@ -607,6 +607,20 @@ function AdminWarSubmenu(war)
     lib.showContext('faction_admin_war_sub')
 end
 
+-- Admin CK action callback (approve / reject / execute from NUI)
+RegisterNUICallback('adminUpdateCK', function(data, cb)
+    cb('ok')
+    local ckId  = tonumber(data.ckId)
+    local status = type(data.status) == 'string' and data.status or nil
+    local allowed = { pending = true, approved = true, rejected = true, executed = true }
+    if not ckId or not status or not allowed[status] then return end
+    TriggerServerEvent('faction:adminUpdateCK', ckId, status)
+    CreateThread(function()
+        Wait(250)
+        TriggerServerEvent('faction:adminGetPendingCKs', nil)
+    end)
+end)
+
 -- CK requests
 RegisterNetEvent('faction:adminReceivePendingCKs', function(list)
     adminCKs = list or {}

@@ -425,6 +425,80 @@
         return String(s).replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
     }
 
+    // ============================================================
+    // IN-NUI TOAST NOTIFICATION SYSTEM
+    // Matches the dark zinc UI design (#18181b background, zinc palette)
+    // ============================================================
+
+    function showToast(message, type) {
+        type = type || 'error';
+        var container = document.getElementById('nui-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'nui-toast-container';
+            container.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;min-width:280px;max-width:460px;';
+            document.body.appendChild(container);
+        }
+
+        var colors = {
+            success: { bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.45)',  accent: '#22c55e' },
+            error:   { bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.45)',  accent: '#ef4444' },
+            warning: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.45)', accent: '#f59e0b' },
+            info:    { bg: 'rgba(59,130,246,0.12)',  border: 'rgba(59,130,246,0.45)', accent: '#3b82f6' }
+        };
+        var icons = {
+            success: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+            error:   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+            warning: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            info:    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+        };
+
+        var c = colors[type] || colors.info;
+        var icon = icons[type] || icons.info;
+
+        var toast = document.createElement('div');
+        toast.style.cssText = 'background:#18181b;border:1px solid ' + c.border + ';border-left:3px solid ' + c.accent + ';border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px;pointer-events:auto;box-shadow:0 4px 24px rgba(0,0,0,0.6);transform:translateX(120%);transition:transform 0.28s cubic-bezier(0.34,1.56,0.64,1),opacity 0.28s ease;opacity:0;min-width:220px;';
+        toast.innerHTML = '<div style="color:' + c.accent + ';flex-shrink:0;margin-top:1px;">' + icon + '</div><div style="color:#e4e4e7;font-size:0.875rem;line-height:1.45;font-family:\'DM Sans\',sans-serif;flex:1;">' + escapeHtml(message) + '</div>';
+        container.appendChild(toast);
+
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                toast.style.transform = 'translateX(0)';
+                toast.style.opacity = '1';
+            });
+        });
+
+        setTimeout(function() {
+            toast.style.transform = 'translateX(120%)';
+            toast.style.opacity = '0';
+            setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+        }, 3800);
+    }
+
+    function showConfirm(message, onConfirm) {
+        var existing = document.getElementById('nui-confirm-overlay');
+        if (existing) existing.parentNode.removeChild(existing);
+
+        var overlay = document.createElement('div');
+        overlay.id = 'nui-confirm-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:99998;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = '<div style="background:#18181b;border:1px solid #3f3f46;border-radius:14px;padding:28px;max-width:360px;width:90%;box-shadow:0 8px 48px rgba(0,0,0,0.7);">'
+            + '<div style="color:#e4e4e7;font-size:0.9375rem;font-weight:500;margin-bottom:22px;line-height:1.5;font-family:\'DM Sans\',sans-serif;">' + escapeHtml(message) + '</div>'
+            + '<div style="display:flex;gap:10px;justify-content:flex-end;">'
+            + '<button id="nui-confirm-cancel" style="background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;padding:8px 22px;border-radius:8px;cursor:pointer;font-family:\'DM Sans\',sans-serif;font-size:0.875rem;">Cancel</button>'
+            + '<button id="nui-confirm-ok" style="background:#ef4444;border:none;color:#fff;padding:8px 22px;border-radius:8px;cursor:pointer;font-family:\'DM Sans\',sans-serif;font-size:0.875rem;font-weight:600;">Confirm</button>'
+            + '</div></div>';
+        document.body.appendChild(overlay);
+
+        document.getElementById('nui-confirm-ok').addEventListener('click', function() {
+            overlay.parentNode.removeChild(overlay);
+            onConfirm();
+        });
+        document.getElementById('nui-confirm-cancel').addEventListener('click', function() {
+            overlay.parentNode.removeChild(overlay);
+        });
+    }
+
     function renderCKTab(content) {
         if (!content || !content.step) {
             tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">Loading...</span></div>';
@@ -434,11 +508,11 @@
         if (content.step === 'select_faction') {
             const factions = content.factions || [];
             if (factions.length === 0) {
-                tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">No other factions available</span></div>';
+                tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">No factions found. Contact an admin to create factions first.</span></div>';
                 return;
             }
-            
-            let html = '<div class="ck-container"><h3>Select Target Faction</h3><p style="color: #71717a; font-size: 13px; margin-bottom: 20px;">Choose the faction whose member you want to request a CK on</p><div class="faction-list">';
+
+            let html = '<div class="ck-container"><h3>Select Faction</h3><p style="color: #71717a; font-size: 13px; margin-bottom: 20px;">Select the faction containing the player you want to submit a CK request for</p><div class="faction-list">';
             factions.forEach(faction => {
                 // Generate unique color based on faction ID
                 const hue = ((faction.id * 13) % 360);
@@ -486,25 +560,26 @@
                 return;
             }
             
-            let html = `<div class="ck-container"><h3>Select Player - ${escapeHtml(factionLabel)}</h3><p style="color: #71717a; font-size: 13px; margin-bottom: 20px;">Choose the player you want to request a CK on</p><div class="player-list">`;
+            let html = `<div class="ck-container"><h3>Select Member - ${escapeHtml(factionLabel)}</h3><p style="color: #71717a; font-size: 13px; margin-bottom: 20px;">Choose the member you want to submit a CK request for</p><div class="player-list">`;
             players.forEach(player => {
                 const initials = (player.name || 'U').split(' ').map(n => n.charAt(0)).join('').toUpperCase().substring(0, 2);
-                // Generate color based on player name hash
                 const nameHash = (player.name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                 const hue = (nameHash * 7) % 360;
-                const color = `hsl(${hue}, 65%, 50%)`;
-                
-                html += `<div class="player-item" data-identifier="${escapeHtml(player.identifier)}" data-name="${escapeHtml(player.name)}" data-server-id="${player.serverId}">
+                const isOnline = player.online === true || player.online === 1;
+                const color = isOnline ? `hsl(${hue}, 65%, 50%)` : '#52525b';
+                const serverId = player.serverId || 0;
+
+                html += `<div class="player-item" data-identifier="${escapeHtml(player.identifier)}" data-name="${escapeHtml(player.name)}" data-server-id="${serverId}">
                     <div style="display: flex; align-items: center; gap: 14px; flex: 1;">
                         <div class="player-icon-small" style="background: ${color}; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(255, 255, 255, 0.1);">
                             ${escapeHtml(initials)}
                         </div>
                         <div style="flex: 1;">
                             <div class="player-name">${escapeHtml(player.name)}</div>
-                            <div style="color: #71717a; font-size: 12px; margin-top: 2px;">ID: ${player.serverId}</div>
+                            <div style="color: ${isOnline ? '#22c55e' : '#71717a'}; font-size: 12px; margin-top: 2px;">${isOnline ? '● Online (ID: ' + serverId + ')' : '○ Offline'}</div>
                         </div>
                     </div>
-                    <button class="btn-select" data-identifier="${escapeHtml(player.identifier)}" data-name="${escapeHtml(player.name)}" data-server-id="${player.serverId}">Select</button>
+                    <button class="btn-select" data-identifier="${escapeHtml(player.identifier)}" data-name="${escapeHtml(player.name)}" data-server-id="${serverId}">Select</button>
                 </div>`;
             });
             html += '</div><button class="btn-back" data-action="ckBack">Back</button></div>';
@@ -563,7 +638,7 @@
                 submitBtn.addEventListener('click', function() {
                     const reason = reasonInput.value.trim();
                     if (!reason) {
-                        alert('Please enter a reason for the CK request');
+                        showToast('Please enter a reason for the CK request', 'warning');
                         return;
                     }
                     post('submitCKRequest', {
@@ -692,7 +767,7 @@
                     const reportType = typeSelect.value;
                     const details = detailsInput.value.trim();
                     if (!details) {
-                        alert('Please enter report details');
+                        showToast('Please enter report details', 'warning');
                         return;
                     }
                     post('submitReport', {
@@ -774,16 +849,16 @@
                 <div class="report-container">
                     <h3>Register Weapon - ${escapeHtml(factionLabel)}</h3>
                     <div class="form-group">
-                        <label for="weapon-name">Weapon Name:</label>
-                        <input type="text" id="weapon-name" class="form-select" placeholder="e.g. AK-47" required>
+                        <label for="weapon-name">Display Name:</label>
+                        <input type="text" id="weapon-name" class="form-select" placeholder="e.g. AK-47, Glock 17" required>
                     </div>
                     <div class="form-group">
-                        <label for="serial-number">Serial Number:</label>
+                        <label for="serial-number">Serial Number: *</label>
                         <input type="text" id="serial-number" class="form-select" placeholder="e.g. SN-123456" required>
                     </div>
                     <div class="form-group">
-                        <label for="weapon-hash">Weapon Hash (Optional):</label>
-                        <input type="text" id="weapon-hash" class="form-select" placeholder="Weapon hash (optional)">
+                        <label for="weapon-hash">Weapon Spawn Code:</label>
+                        <input type="text" id="weapon-hash" class="form-select" placeholder="e.g. weapon_ak47 or -1074790547">
                     </div>
                     <div class="form-actions">
                         <button class="btn-submit" id="btn-submit-weapon">Register Weapon</button>
@@ -800,7 +875,7 @@
                     const serialNumber = tabContent.querySelector('#serial-number').value.trim();
                     const weaponHash = tabContent.querySelector('#weapon-hash').value.trim();
                     if (!weaponName || !serialNumber) {
-                        alert('Please fill in weapon name and serial number');
+                        showToast('Please fill in weapon name and serial number', 'warning');
                         return;
                     }
                     post('adminSubmitWeapon', {
@@ -950,7 +1025,7 @@
                                         <path d="M2 17l10 5 10-5"></path>
                                         <path d="M2 12l10 5 10-5"></path>
                                     </svg>
-                                    Weapon Name
+                                    Display Name
                                 </label>
                                 <input type="text" id="weapon-name" class="form-select" placeholder="e.g. AK-47, M4A1, Glock 17" required style="width: 100%; padding: 14px 18px; background: linear-gradient(135deg, #27272a 0%, #1f1f23 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #e4e4e7; font-size: 15px; font-weight: 500; font-family: inherit; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);">
                             </div>
@@ -972,10 +1047,10 @@
                                         <polyline points="16 18 22 12 16 6"></polyline>
                                         <polyline points="8 6 2 12 8 18"></polyline>
                                     </svg>
-                                    Weapon Hash
-                                    <span style="color: #71717a; font-size: 0.75rem; font-weight: 400; text-transform: none; margin-left: 0.5rem;">(Optional)</span>
+                                    Weapon Spawn Code
+                                    <span style="color: #71717a; font-size: 0.75rem; font-weight: 400; text-transform: none; margin-left: 0.5rem;">(for gun drops)</span>
                                 </label>
-                                <input type="text" id="weapon-hash" class="form-select" placeholder="e.g. -1074790547 (leave empty if unknown)" style="width: 100%; padding: 14px 18px; background: linear-gradient(135deg, #27272a 0%, #1f1f23 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #e4e4e7; font-size: 15px; font-weight: 500; font-family: inherit; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);">
+                                <input type="text" id="weapon-hash" class="form-select" placeholder="e.g. weapon_ak47 or -1074790547" style="width: 100%; padding: 14px 18px; background: linear-gradient(135deg, #27272a 0%, #1f1f23 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #e4e4e7; font-size: 15px; font-weight: 500; font-family: inherit; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);">
                             </div>
                             <div class="form-actions" style="display: flex; gap: 0.75rem; margin-top: 2rem;">
                                 <button class="btn-submit" id="btn-submit-weapon" style="flex: 1; padding: 14px 24px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); display: flex; align-items: center; justify-content: center; gap: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -1074,7 +1149,7 @@
                             const serialNumber = tabContent.querySelector('#serial-number').value.trim();
                             const weaponHash = tabContent.querySelector('#weapon-hash').value.trim();
                             if (!weaponName || !serialNumber) {
-                                alert('Please fill in weapon name and serial number');
+                                showToast('Please fill in weapon name and serial number', 'warning');
                                 return;
                             }
                             post('adminSubmitWeapon', {
@@ -1294,7 +1369,7 @@
                     const stashId = tabContent.querySelector('#stash-id').value.trim() || null;
                     
                     if (!name || isNaN(x) || isNaN(y) || isNaN(z)) {
-                        alert('Please fill in all required fields');
+                        showToast('Please fill in the name and valid X, Y, Z coordinates', 'warning');
                         return;
                     }
                     
@@ -1881,8 +1956,10 @@
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 const ruleId = parseInt(this.getAttribute('data-rule-id'));
-                if (ruleId && confirm('Are you sure you want to delete this rule?')) {
-                    post('adminDeleteRule', { ruleId: ruleId });
+                if (ruleId) {
+                    showConfirm('Are you sure you want to delete this rule?', function() {
+                        post('adminDeleteRule', { ruleId: ruleId });
+                    });
                 }
             });
         });
@@ -1996,12 +2073,12 @@
             const order = parseInt(document.getElementById('rule-order').value) || 0;
             
             if (!title || !content) {
-                alert('Please fill in both title and content');
+                showToast('Please fill in both title and content', 'warning');
                 return;
             }
-            
+
             if (ruleType === 'faction' && !factionId) {
-                alert('Please select a faction');
+                showToast('Please select a faction for this rule', 'warning');
                 return;
             }
             
@@ -2026,21 +2103,53 @@
     function renderAdminCKTab(content) {
         const cks = content.items || [];
         if (cks.length === 0) {
-            tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">No pending CK requests</span></div>';
+            tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">No CK requests found</span></div>';
             return;
         }
-        
-        let html = '<div class="list-container">';
+
+        const statusColors = { pending: '#f59e0b', approved: '#22c55e', rejected: '#ef4444', executed: '#8b5cf6' };
+
+        let html = '<div class="list-container" style="display:flex;flex-direction:column;gap:0.75rem;">';
         cks.forEach(ck => {
+            const sc = statusColors[ck.status] || '#71717a';
+            const actionBtns = (function() {
+                if (ck.status === 'pending') {
+                    return `<button class="btn-ck-action" data-ck-id="${ck.id}" data-action="approved" style="background:#22c55e1a;border:1px solid #22c55e44;color:#22c55e;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;">Approve</button>
+                            <button class="btn-ck-action" data-ck-id="${ck.id}" data-action="rejected" style="background:#ef44441a;border:1px solid #ef444444;color:#ef4444;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;">Reject</button>
+                            <button class="btn-ck-action" data-ck-id="${ck.id}" data-action="executed" style="background:#8b5cf61a;border:1px solid #8b5cf644;color:#8b5cf6;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;">Execute</button>`;
+                } else if (ck.status === 'approved') {
+                    return `<button class="btn-ck-action" data-ck-id="${ck.id}" data-action="executed" style="background:#8b5cf61a;border:1px solid #8b5cf644;color:#8b5cf6;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;">Execute</button>
+                            <button class="btn-ck-action" data-ck-id="${ck.id}" data-action="rejected" style="background:#ef44441a;border:1px solid #ef444444;color:#ef4444;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;">Reject</button>`;
+                }
+                return '';
+            })();
+
             html += `
-                <div class="list-item">
-                    <strong>${escapeHtml(ck.target_name || 'Unknown')}</strong> (${escapeHtml(ck.faction_label || '')})<br>
-                    <small>Reason: ${escapeHtml(ck.reason || 'No reason')} | ID: ${ck.id}</small>
-                </div>
-            `;
+                <div style="background:#27272a;border:1px solid #3f3f46;border-radius:10px;padding:1rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.5rem;">
+                        <div>
+                            <span style="color:#fff;font-weight:600;font-size:0.9375rem;">${escapeHtml(ck.target_name || 'Unknown')}</span>
+                            <span style="color:#71717a;font-size:0.875rem;"> — ${escapeHtml(ck.faction_label || 'Unknown Faction')}</span>
+                        </div>
+                        <span style="background:${sc}1a;color:${sc};border:1px solid ${sc}44;padding:2px 10px;border-radius:6px;font-size:0.7rem;font-weight:700;text-transform:uppercase;white-space:nowrap;">${escapeHtml(ck.status || 'pending')}</span>
+                    </div>
+                    <div style="color:#a1a1aa;font-size:0.8125rem;margin-bottom:0.5rem;"><strong>Reason:</strong> ${escapeHtml(ck.reason || 'No reason given')}</div>
+                    <div style="color:#71717a;font-size:0.75rem;margin-bottom:${actionBtns ? '0.75rem' : '0'};">Submitted: ${formatDate(ck.created_at)}</div>
+                    ${actionBtns ? `<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">${actionBtns}</div>` : ''}
+                </div>`;
         });
         html += '</div>';
         tabContent.innerHTML = html;
+
+        tabContent.querySelectorAll('.btn-ck-action').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const ckId = parseInt(this.getAttribute('data-ck-id'));
+                const action = this.getAttribute('data-action');
+                if (ckId && action) {
+                    post('adminUpdateCK', { ckId: ckId, status: action });
+                }
+            });
+        });
     }
 
     function renderAdminConflictsTab(content) {
@@ -2197,12 +2306,12 @@
             const reason = document.getElementById('conflict-reason').value;
             
             if (!faction1Id || !faction2Id) {
-                alert('Please select both factions');
+                showToast('Please select both factions', 'warning');
                 return;
             }
-            
+
             if (faction1Id === faction2Id) {
-                alert('Cannot create conflict between the same faction');
+                showToast('Cannot create a conflict between the same faction', 'error');
                 return;
             }
             
@@ -2284,13 +2393,17 @@
         tabContent.innerHTML = html;
     }
     
-    function formatDate(dateString) {
-        if (!dateString) return 'Unknown';
+    function formatDate(dateValue) {
+        if (!dateValue) return 'Unknown';
         try {
-            const date = new Date(dateString);
+            // oxmysql may return Unix timestamp (number) or a date string
+            const date = (typeof dateValue === 'number')
+                ? new Date(dateValue * 1000)   // Unix seconds → ms
+                : new Date(dateValue);
+            if (isNaN(date.getTime())) return String(dateValue);
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         } catch (e) {
-            return dateString;
+            return String(dateValue);
         }
     }
     
@@ -2316,9 +2429,11 @@
         } else {
             html += '<div class="cooldowns-list">';
             cooldowns.forEach(cooldown => {
-                const timeRemaining = calculateTimeRemaining(cooldown.ends_at);
+                const secsRemaining = typeof cooldown.seconds_remaining === 'number' ? cooldown.seconds_remaining : 0;
+                const timeRemaining = formatTimeRemaining(secsRemaining);
                 const typeLabel = getCooldownTypeLabel(cooldown.type);
-                
+                const endsAtDisplay = cooldown.ends_at ? formatDate(cooldown.ends_at) : 'Unknown';
+
                 html += `
                     <div class="cooldown-card" data-cooldown-id="${cooldown.id}" style="background: #27272a; border: 1px solid #3f3f46; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
                         <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
@@ -2333,7 +2448,7 @@
                                     Type: ${escapeHtml(typeLabel)} | Remaining: <span style="color: #f59e0b; font-weight: 600;">${timeRemaining}</span>
                                 </div>
                                 <div style="color: #71717a; font-size: 0.75rem; margin-top: 0.5rem;">
-                                    Ends: ${formatDate(cooldown.ends_at)}
+                                    Ends: ${endsAtDisplay}
                                 </div>
                             </div>
                         </div>
@@ -2444,15 +2559,15 @@
             const reason = document.getElementById('cooldown-reason').value;
             
             if (!factionId) {
-                alert('Please select a faction');
+                showToast('Please select a faction', 'warning');
                 return;
             }
-            
+
             if (!cooldownType) {
-                alert('Please select a cooldown type');
+                showToast('Please select a cooldown type', 'warning');
                 return;
             }
-            
+
             post('adminSetCooldown', {
                 factionId: factionId,
                 cooldownType: cooldownType,
@@ -2605,8 +2720,10 @@
             'war': 'War',
             'ck': 'CK Request',
             'territory': 'Territory Claim',
+            'territory_claim': 'Territory Claim',
             'gun_drop': 'Gun Drop',
-            'violation': 'Violation'
+            'violation': 'Violation',
+            'custom': 'Custom'
         };
         return labels[type] || type;
     }
@@ -2656,7 +2773,7 @@
             const violationType = violation.violation_type || 'Unknown';
             const description = violation.description || 'No description';
             const sourceType = violation.source_type || 'violation';
-            const date = violation.created_at ? (typeof violation.created_at === 'string' ? violation.created_at.substring(0, 10) : 'Recent') : 'Unknown';
+            const date = formatDate(violation.created_at);
             
             html += `
                 <div class="list-item">

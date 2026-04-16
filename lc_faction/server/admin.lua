@@ -104,6 +104,23 @@ RegisterNetEvent('faction:adminUpdateFaction', function(factionId, updates)
     MySQL.update('UPDATE faction_factions SET ' .. table.concat(sets, ', ') .. ' WHERE id = ?', vals)
 
     lib.notify(source, { type = 'success', description = 'Faction updated.' })
+
+    -- Push fresh faction data to all online members so their cache stays current
+    local members = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { fid })
+    if members and #members > 0 then
+        local onlineMap = {}
+        for _, pid in ipairs(GetPlayers()) do
+            local src = tonumber(pid)
+            if src then
+                local p = ESX.GetPlayerFromId(src)
+                if p and p.identifier then onlineMap[p.identifier] = src end
+            end
+        end
+        for _, m in ipairs(members) do
+            local memberSrc = onlineMap[m.identifier]
+            if memberSrc then SendFactionDataToPlayer(memberSrc) end
+        end
+    end
 end)
 
 -- ============================================================
@@ -350,9 +367,16 @@ RegisterNetEvent('faction:adminGetViolations', function()
     if not IsAdminPlayer(source) then return end
 
     local violations = MySQL.query.await([[
-        SELECT v.*, f.label AS faction_label
+        SELECT v.id, v.faction_id, v.member_identifier,
+               v.type AS violation_type,
+               v.details AS description,
+               'admin' AS source_type,
+               DATE_FORMAT(v.created_at, '%Y-%m-%d') AS created_at,
+               f.label AS faction_label,
+               COALESCE(fm.player_name, v.member_identifier) AS member_name
         FROM faction_violations v
         LEFT JOIN faction_factions f ON f.id = v.faction_id
+        LEFT JOIN faction_members fm ON fm.identifier = v.member_identifier AND fm.faction_id = v.faction_id
         ORDER BY v.created_at DESC
         LIMIT 100
     ]])
@@ -494,7 +518,10 @@ RegisterNetEvent('faction:adminGetRules', function()
     if not IsAdminPlayer(source) then return end
 
     local rules = MySQL.query.await([[
-        SELECT r.*, f.label AS faction_label
+        SELECT r.id, r.faction_id, r.is_global, r.`order`,
+               r.title AS rule_title,
+               r.content AS rule_content,
+               f.label AS faction_label
         FROM faction_rules r
         LEFT JOIN faction_factions f ON f.id = r.faction_id
         ORDER BY r.is_global DESC, r.faction_id ASC, r.`order` ASC, r.id ASC
@@ -512,11 +539,17 @@ RegisterNetEvent('faction:adminCreateRule', function(data)
     local title    = tostring(data.title or ''):sub(1, 256)
     local content  = tostring(data.content or ''):sub(1, 4000)
     local isGlobal = data.isGlobal and 1 or 0
-    local fid      = not isGlobal and tonumber(data.factionId) or nil
+    -- Lua: 0 is truthy, so must compare explicitly
+    local fid      = (isGlobal == 0) and tonumber(data.factionId) or nil
     local order    = tonumber(data.order) or 0
 
     if title == '' or content == '' then
         lib.notify(source, { type = 'error', description = 'Title and content are required.' })
+        return
+    end
+
+    if isGlobal == 0 and not fid then
+        lib.notify(source, { type = 'error', description = 'A faction must be selected for faction-specific rules.' })
         return
     end
 
@@ -538,7 +571,8 @@ RegisterNetEvent('faction:adminUpdateRule', function(data)
     local title    = tostring(data.title or ''):sub(1, 256)
     local content  = tostring(data.content or ''):sub(1, 4000)
     local isGlobal = data.isGlobal and 1 or 0
-    local fid      = not isGlobal and tonumber(data.factionId) or nil
+    -- Lua: 0 is truthy, must compare explicitly
+    local fid      = (isGlobal == 0) and tonumber(data.factionId) or nil
     local order    = tonumber(data.order) or 0
 
     MySQL.update('UPDATE faction_rules SET title = ?, content = ?, is_global = ?, faction_id = ?, `order` = ? WHERE id = ?', {
