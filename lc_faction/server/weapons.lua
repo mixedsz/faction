@@ -283,3 +283,91 @@ CreateThread(function()
         ::continue::
     end
 end)
+
+-- ============================================================
+-- ADMIN: /factiondrop [factionId]
+-- Forces an immediate gun drop for a faction and resets the timer.
+-- ============================================================
+RegisterCommand('factiondrop', function(source, args)
+    if source == 0 then return end -- console not supported
+    if not IsAdminPlayer(source) then
+        lib.notify(source, { type = 'error', description = 'No permission.' })
+        return
+    end
+
+    local fid = tonumber(args[1])
+    if not fid then
+        lib.notify(source, { type = 'error', description = 'Usage: /factiondrop [faction_id]' })
+        return
+    end
+
+    local faction = GetFactionById(fid)
+    if not faction then
+        lib.notify(source, { type = 'error', description = 'Faction ID not found.' })
+        return
+    end
+
+    local weapons = MySQL.query.await([[
+        SELECT weapon_name, serial_number, weapon_hash
+        FROM faction_weapons
+        WHERE faction_id = ? AND weapon_hash IS NOT NULL AND weapon_hash != ''
+        ORDER BY weapon_name
+    ]], { fid })
+
+    if not weapons or #weapons == 0 then
+        lib.notify(source, { type = 'error', description = 'No weapons with hashes registered for ' .. faction.label .. '.' })
+        return
+    end
+
+    -- Reset cooldown timer
+    MySQL.update('DELETE FROM faction_cooldowns WHERE faction_id = ? AND type = ?', { fid, 'gun_drop' })
+
+    -- Deliver to all online members
+    local factionMembers = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { fid })
+    local onlineMap = {}
+    for _, pid in ipairs(GetPlayers()) do
+        local src = tonumber(pid)
+        if src then
+            local p = ESX.GetPlayerFromId(src)
+            if p and p.identifier then onlineMap[p.identifier] = src end
+        end
+    end
+
+    local recipients = {}
+    if factionMembers then
+        for _, m in ipairs(factionMembers) do
+            local memberSrc = onlineMap[m.identifier]
+            if memberSrc then
+                TriggerClientEvent('faction:receiveGunDrop', memberSrc, weapons)
+                table.insert(recipients, memberSrc)
+            end
+        end
+    end
+
+    -- Start fresh cooldown
+    MySQL.query([[
+        INSERT INTO faction_cooldowns (faction_id, type, expires_at, reason)
+        VALUES (?, 'gun_drop', DATE_ADD(NOW(), INTERVAL ? SECOND), 'Admin forced gun drop')
+        ON DUPLICATE KEY UPDATE expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND), reason = 'Admin forced gun drop'
+    ]], { fid, Config.GunDrops.cooldown, Config.GunDrops.cooldown })
+
+    -- Notify faction members
+    NotifyFactionMembers(fid, 'faction:receiveNotification', {
+        type        = 'success',
+        title       = 'Gun Drop (Admin)',
+        description = string.format('Admin triggered a gun drop — %d online member(s) armed up.', #recipients)
+    })
+
+    local xPlayer = ESX.GetPlayerFromId(source)
+    local adminName = xPlayer and xPlayer.getName() or 'Admin'
+    lib.notify(source, { type = 'success', description = string.format(
+        'Gun drop forced for %s — %d member(s) online received weapons. Timer reset.', faction.label, #recipients) })
+
+    if Config.Webhooks.enabled and Config.Webhooks.weaponLogging ~= '' then
+        PerformHttpRequest(Config.Webhooks.weaponLogging, function() end, 'POST',
+            json.encode({ content = string.format(
+                '**Admin Gun Drop** | Faction: %s | Admin: %s | Recipients: %d | Weapons: %d',
+                faction.label, adminName, #recipients, #weapons) }),
+            { ['Content-Type'] = 'application/json' })
+    end
+end, false)

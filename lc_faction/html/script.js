@@ -95,6 +95,15 @@
         }).catch(() => {});
     }
 
+    function postWithData(name, data) {
+        if (!isNui()) return Promise.resolve(null);
+        return fetch(`https://${window.GetParentResourceName()}/${name}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+            body: JSON.stringify(data || {}),
+        }).then(r => r.json()).catch(() => null);
+    }
+
     function clearCooldownTimers() {
         if (window.cooldownIntervals && window.cooldownIntervals.length) {
             window.cooldownIntervals.forEach(function(id) { clearInterval(id); });
@@ -1329,6 +1338,11 @@
                             </select>
                         </div>
                     </div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <button type="button" id="btn-use-position" class="btn-secondary" style="width:100%;padding:10px;background:#27272a;border:1px solid #3f3f46;border-radius:6px;color:#a1a1aa;cursor:pointer;font-size:0.85rem;transition:background 0.15s;">
+                            📍 Use Current Position
+                        </button>
+                    </div>
                     <div class="form-group">
                         <label for="coord-x">X Coordinate:</label>
                         <input type="number" id="coord-x" class="form-select" placeholder="X coordinate" step="0.01" required>
@@ -1356,6 +1370,25 @@
                 </div>
             `;
             
+            const posBtn = tabContent.querySelector('#btn-use-position');
+            if (posBtn) {
+                posBtn.addEventListener('click', function() {
+                    posBtn.textContent = '⌛ Fetching...';
+                    postWithData('getPlayerCoords', {}).then(function(data) {
+                        if (data && data.x !== undefined) {
+                            tabContent.querySelector('#coord-x').value = parseFloat(data.x).toFixed(4);
+                            tabContent.querySelector('#coord-y').value = parseFloat(data.y).toFixed(4);
+                            tabContent.querySelector('#coord-z').value = parseFloat(data.z).toFixed(4);
+                            posBtn.textContent = '✅ Position Set';
+                            setTimeout(() => { posBtn.textContent = '📍 Use Current Position'; }, 2000);
+                        } else {
+                            posBtn.textContent = '❌ Failed';
+                            setTimeout(() => { posBtn.textContent = '📍 Use Current Position'; }, 2000);
+                        }
+                    });
+                });
+            }
+
             const submitBtn = tabContent.querySelector('#btn-submit-territory');
             const cancelBtn = tabContent.querySelector('.btn-cancel[data-action="territoryCancel"]');
             if (submitBtn) {
@@ -3036,6 +3069,10 @@
                 }
             } else if (tab === 'reputation') {
                 if (content.reputation !== undefined) {
+                    clearCooldownTimers();
+                    const cdSecs = parseInt(content.gunDropCooldownSecs) || 0;
+                    const cdDisplay = cdSecs > 0 ? formatTimeRemaining(cdSecs) : 'Available Now';
+                    const cdColor   = cdSecs > 0 ? '#f59e0b' : '#22c55e';
                     tabContent.innerHTML = `
                         <div class="overview-content">
                             <div class="info-card">
@@ -3056,9 +3093,30 @@
                                     <span class="info-label">Gun Drop Eligible:</span>
                                     <span class="info-value">${content.gunDropEligible || 'No'}</span>
                                 </div>
+                                <div class="info-row">
+                                    <span class="info-label">Next Gun Drop:</span>
+                                    <span class="info-value" id="gun-drop-timer" style="color:${cdColor};font-weight:600;">${cdDisplay}</span>
+                                </div>
                             </div>
                         </div>
                     `;
+                    if (cdSecs > 0) {
+                        let secsLeft = cdSecs;
+                        const timerEl = tabContent.querySelector('#gun-drop-timer');
+                        const iid = setInterval(function() {
+                            secsLeft--;
+                            if (!timerEl || !document.body.contains(timerEl)) { clearInterval(iid); return; }
+                            if (secsLeft <= 0) {
+                                clearInterval(iid);
+                                timerEl.textContent = 'Available Now';
+                                timerEl.style.color = '#22c55e';
+                            } else {
+                                timerEl.textContent = formatTimeRemaining(secsLeft);
+                            }
+                        }, 1000);
+                        if (!window.cooldownIntervals) window.cooldownIntervals = [];
+                        window.cooldownIntervals.push(iid);
+                    }
                 } else {
                     renderOverview();
                 }

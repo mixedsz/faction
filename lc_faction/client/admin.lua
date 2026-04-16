@@ -607,6 +607,12 @@ function AdminWarSubmenu(war)
     lib.showContext('faction_admin_war_sub')
 end
 
+-- Return the admin player's current world coords so NUI can fill the territory form
+RegisterNUICallback('getPlayerCoords', function(_, cb)
+    local coords = GetEntityCoords(PlayerPedId())
+    cb({ x = coords.x, y = coords.y, z = coords.z })
+end)
+
 -- Admin CK action callback (approve / reject / execute from NUI)
 RegisterNUICallback('adminUpdateCK', function(data, cb)
     cb('ok')

@@ -43,10 +43,11 @@ RegisterNetEvent('faction:receiveFactionData', function(data)
             action  = 'updateTab',
             tab     = 'reputation',
             content = {
-                reputation      = faction.reputation or 0,
-                rank            = rankLabel,
-                activeWars      = (faction.active_wars or 0) .. ' / ' .. (faction.max_wars or 2),
-                gunDropEligible = faction.gun_drop_eligible and 'Yes' or 'No'
+                reputation          = faction.reputation or 0,
+                rank                = rankLabel,
+                activeWars          = (faction.active_wars or 0) .. ' / ' .. (faction.max_wars or 2),
+                gunDropEligible     = faction.gun_drop_eligible and 'Yes' or 'No',
+                gunDropCooldownSecs = faction.gun_drop_cooldown_secs or 0
             }
         })
     end
