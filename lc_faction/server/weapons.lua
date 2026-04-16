@@ -151,7 +151,7 @@ RegisterNetEvent('faction:requestGunDrop', function()
 
     -- Eligibility flag check
     local faction = GetFactionById(row.faction_id)
-    if not faction or faction.gun_drop_eligible ~= 1 then
+    if not faction or (faction.gun_drop_eligible ~= 1 and faction.gun_drop_eligible ~= true) then
         lib.notify(source, { type = 'error', description = 'Your faction is not marked as gun drop eligible.' })
         return
     end

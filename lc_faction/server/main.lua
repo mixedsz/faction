@@ -70,7 +70,7 @@ function SendFactionDataToPlayer(source)
         reputation = row.reputation,
         active_wars = row.active_wars,
         max_wars   = row.max_wars,
-        gun_drop_eligible = row.gun_drop_eligible == 1
+        gun_drop_eligible = row.gun_drop_eligible == 1 or row.gun_drop_eligible == true
     }
 
     TriggerClientEvent('faction:receiveFactionData', source, {
