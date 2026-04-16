@@ -244,14 +244,6 @@ RegisterNetEvent('faction:receiveTerritory', function(territory)
         tab = 'territory',
         content = { items = items }
     })
-    
-    -- If management, show claim option via notification
-    if CanClaimTerritory() then
-        lib.notify({
-            type = 'info',
-            description = 'Use the menu to claim new territory'
-        })
-    end
 end)
 
 function ClaimTerritory()

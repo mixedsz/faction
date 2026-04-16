@@ -12,14 +12,13 @@ RegisterNetEvent('faction:getFactionListForCK', function()
         return
     end
 
-    -- Show all other factions (online-member filter happens when selecting players)
+    -- Show ALL factions (including own) so a boss can CK any member regardless of faction
     local factions = MySQL.query.await([[
         SELECT DISTINCT f.id, f.name, f.label
         FROM faction_factions f
         JOIN faction_members fm ON fm.faction_id = f.id
-        WHERE f.id != ?
         ORDER BY f.label
-    ]], { row.faction_id })
+    ]])
 
     TriggerClientEvent('faction:receiveFactionListForCK', source, factions or {})
 end)
@@ -37,20 +36,19 @@ RegisterNetEvent('faction:getFactionPlayersForCK', function(factionId)
     end
 
     local members = MySQL.query.await('SELECT identifier, player_name FROM faction_members WHERE faction_id = ?', { tonumber(factionId) })
-    local onlinePlayers = {}
+    local allPlayers = {}
 
     for _, m in ipairs(members or {}) do
         local target = ESX.GetPlayerFromIdentifier(m.identifier)
-        if target then
-            table.insert(onlinePlayers, {
-                identifier = m.identifier,
-                name       = target.getName(),
-                serverId   = target.source
-            })
-        end
+        table.insert(allPlayers, {
+            identifier = m.identifier,
+            name       = (target and target.getName()) or m.player_name or m.identifier,
+            serverId   = target and target.source or nil,
+            online     = target ~= nil
+        })
     end
 
-    TriggerClientEvent('faction:receiveFactionPlayersForCK', source, onlinePlayers, faction.label)
+    TriggerClientEvent('faction:receiveFactionPlayersForCK', source, allPlayers, faction.label)
 end)
 
 -- Submit a CK request

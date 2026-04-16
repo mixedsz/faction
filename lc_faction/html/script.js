@@ -436,7 +436,7 @@
         if (!container) {
             container = document.createElement('div');
             container.id = 'nui-toast-container';
-            container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:380px;';
+            container.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;min-width:280px;max-width:460px;';
             document.body.appendChild(container);
         }
 
@@ -508,11 +508,11 @@
         if (content.step === 'select_faction') {
             const factions = content.factions || [];
             if (factions.length === 0) {
-                tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">No other factions available</span></div>';
+                tabContent.innerHTML = '<div class="empty-state"><span class="empty-text">No factions found. Contact an admin to create factions first.</span></div>';
                 return;
             }
-            
-            let html = '<div class="ck-container"><h3>Select Target Faction</h3><p style="color: #71717a; font-size: 13px; margin-bottom: 20px;">Choose the faction whose member you want to request a CK on</p><div class="faction-list">';
+
+            let html = '<div class="ck-container"><h3>Select Faction</h3><p style="color: #71717a; font-size: 13px; margin-bottom: 20px;">Select the faction containing the player you want to submit a CK request for</p><div class="faction-list">';
             factions.forEach(faction => {
                 // Generate unique color based on faction ID
                 const hue = ((faction.id * 13) % 360);
@@ -560,25 +560,26 @@
                 return;
             }
             
-            let html = `<div class="ck-container"><h3>Select Player - ${escapeHtml(factionLabel)}</h3><p style="color: #71717a; font-size: 13px; margin-bottom: 20px;">Choose the player you want to request a CK on</p><div class="player-list">`;
+            let html = `<div class="ck-container"><h3>Select Member - ${escapeHtml(factionLabel)}</h3><p style="color: #71717a; font-size: 13px; margin-bottom: 20px;">Choose the member you want to submit a CK request for</p><div class="player-list">`;
             players.forEach(player => {
                 const initials = (player.name || 'U').split(' ').map(n => n.charAt(0)).join('').toUpperCase().substring(0, 2);
-                // Generate color based on player name hash
                 const nameHash = (player.name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                 const hue = (nameHash * 7) % 360;
-                const color = `hsl(${hue}, 65%, 50%)`;
-                
-                html += `<div class="player-item" data-identifier="${escapeHtml(player.identifier)}" data-name="${escapeHtml(player.name)}" data-server-id="${player.serverId}">
+                const isOnline = player.online === true || player.online === 1;
+                const color = isOnline ? `hsl(${hue}, 65%, 50%)` : '#52525b';
+                const serverId = player.serverId || 0;
+
+                html += `<div class="player-item" data-identifier="${escapeHtml(player.identifier)}" data-name="${escapeHtml(player.name)}" data-server-id="${serverId}">
                     <div style="display: flex; align-items: center; gap: 14px; flex: 1;">
                         <div class="player-icon-small" style="background: ${color}; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(255, 255, 255, 0.1);">
                             ${escapeHtml(initials)}
                         </div>
                         <div style="flex: 1;">
                             <div class="player-name">${escapeHtml(player.name)}</div>
-                            <div style="color: #71717a; font-size: 12px; margin-top: 2px;">ID: ${player.serverId}</div>
+                            <div style="color: ${isOnline ? '#22c55e' : '#71717a'}; font-size: 12px; margin-top: 2px;">${isOnline ? '● Online (ID: ' + serverId + ')' : '○ Offline'}</div>
                         </div>
                     </div>
-                    <button class="btn-select" data-identifier="${escapeHtml(player.identifier)}" data-name="${escapeHtml(player.name)}" data-server-id="${player.serverId}">Select</button>
+                    <button class="btn-select" data-identifier="${escapeHtml(player.identifier)}" data-name="${escapeHtml(player.name)}" data-server-id="${serverId}">Select</button>
                 </div>`;
             });
             html += '</div><button class="btn-back" data-action="ckBack">Back</button></div>';
@@ -848,16 +849,16 @@
                 <div class="report-container">
                     <h3>Register Weapon - ${escapeHtml(factionLabel)}</h3>
                     <div class="form-group">
-                        <label for="weapon-name">Weapon Name:</label>
-                        <input type="text" id="weapon-name" class="form-select" placeholder="e.g. AK-47" required>
+                        <label for="weapon-name">Display Name:</label>
+                        <input type="text" id="weapon-name" class="form-select" placeholder="e.g. AK-47, Glock 17" required>
                     </div>
                     <div class="form-group">
-                        <label for="serial-number">Serial Number:</label>
+                        <label for="serial-number">Serial Number: *</label>
                         <input type="text" id="serial-number" class="form-select" placeholder="e.g. SN-123456" required>
                     </div>
                     <div class="form-group">
-                        <label for="weapon-hash">Weapon Hash (Optional):</label>
-                        <input type="text" id="weapon-hash" class="form-select" placeholder="Weapon hash (optional)">
+                        <label for="weapon-hash">Weapon Spawn Code:</label>
+                        <input type="text" id="weapon-hash" class="form-select" placeholder="e.g. weapon_ak47 or -1074790547">
                     </div>
                     <div class="form-actions">
                         <button class="btn-submit" id="btn-submit-weapon">Register Weapon</button>
@@ -1024,7 +1025,7 @@
                                         <path d="M2 17l10 5 10-5"></path>
                                         <path d="M2 12l10 5 10-5"></path>
                                     </svg>
-                                    Weapon Name
+                                    Display Name
                                 </label>
                                 <input type="text" id="weapon-name" class="form-select" placeholder="e.g. AK-47, M4A1, Glock 17" required style="width: 100%; padding: 14px 18px; background: linear-gradient(135deg, #27272a 0%, #1f1f23 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #e4e4e7; font-size: 15px; font-weight: 500; font-family: inherit; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);">
                             </div>
@@ -1046,10 +1047,10 @@
                                         <polyline points="16 18 22 12 16 6"></polyline>
                                         <polyline points="8 6 2 12 8 18"></polyline>
                                     </svg>
-                                    Weapon Hash
-                                    <span style="color: #71717a; font-size: 0.75rem; font-weight: 400; text-transform: none; margin-left: 0.5rem;">(Optional)</span>
+                                    Weapon Spawn Code
+                                    <span style="color: #71717a; font-size: 0.75rem; font-weight: 400; text-transform: none; margin-left: 0.5rem;">(for gun drops)</span>
                                 </label>
-                                <input type="text" id="weapon-hash" class="form-select" placeholder="e.g. -1074790547 (leave empty if unknown)" style="width: 100%; padding: 14px 18px; background: linear-gradient(135deg, #27272a 0%, #1f1f23 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #e4e4e7; font-size: 15px; font-weight: 500; font-family: inherit; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);">
+                                <input type="text" id="weapon-hash" class="form-select" placeholder="e.g. weapon_ak47 or -1074790547" style="width: 100%; padding: 14px 18px; background: linear-gradient(135deg, #27272a 0%, #1f1f23 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #e4e4e7; font-size: 15px; font-weight: 500; font-family: inherit; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);">
                             </div>
                             <div class="form-actions" style="display: flex; gap: 0.75rem; margin-top: 2rem;">
                                 <button class="btn-submit" id="btn-submit-weapon" style="flex: 1; padding: 14px 24px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); display: flex; align-items: center; justify-content: center; gap: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">

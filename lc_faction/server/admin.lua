@@ -501,7 +501,10 @@ RegisterNetEvent('faction:adminGetRules', function()
     if not IsAdminPlayer(source) then return end
 
     local rules = MySQL.query.await([[
-        SELECT r.*, f.label AS faction_label
+        SELECT r.id, r.faction_id, r.is_global, r.`order`,
+               r.title AS rule_title,
+               r.content AS rule_content,
+               f.label AS faction_label
         FROM faction_rules r
         LEFT JOIN faction_factions f ON f.id = r.faction_id
         ORDER BY r.is_global DESC, r.faction_id ASC, r.`order` ASC, r.id ASC

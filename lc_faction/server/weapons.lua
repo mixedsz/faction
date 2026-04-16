@@ -40,8 +40,9 @@ RegisterNetEvent('faction:getWeapons', function()
         return
     end
 
+    -- weapon_hash (spawn code) intentionally excluded from member view for security
     local weapons = MySQL.query.await([[
-        SELECT w.id, w.weapon_name, w.serial_number, w.weapon_hash,
+        SELECT w.id, w.weapon_name, w.serial_number,
                w.holder_identifier, w.holder_name, w.registered_at
         FROM faction_weapons w
         WHERE w.faction_id = ?
