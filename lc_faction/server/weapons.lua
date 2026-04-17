@@ -6,9 +6,9 @@ local possessionCache = {}
 -- Violation cooldown cache: identifier -> last violation log timestamp (os.time)
 local violationTimestamps = {}
 
--- Helper: get current weapon inventory for a player from ox_inventory
-local function GetPlayerWeaponInventory(identifier)
-    local items = exports.ox_inventory and exports.ox_inventory:GetInventoryItems('player', identifier) or {}
+-- Helper: get current weapon inventory for a player from ox_inventory (pass server source ID)
+local function GetPlayerWeaponInventory(src)
+    local items = exports.ox_inventory and exports.ox_inventory:GetInventoryItems(src) or {}
     local weapons = {}
     if type(items) == 'table' then
         for _, item in ipairs(items) do
@@ -19,7 +19,7 @@ local function GetPlayerWeaponInventory(identifier)
                     table.insert(weapons, {
                         name   = item.name,
                         label  = item.label or item.name,
-                        serial = serial
+                        serial = serial and tostring(serial) or nil
                     })
                 end
             end
@@ -52,12 +52,13 @@ RegisterNetEvent('faction:getWeapons', function()
     -- Attach possession info from cache
     local now = os.time()
     for _, w in ipairs(weapons or {}) do
-        if w.holder_identifier then
+        if w.holder_identifier and w.serial_number then
             local cached = possessionCache[w.holder_identifier]
             if cached and (now - cached.lastScan) < Config.Weapons.possessionCacheMaxAge then
                 w.inPossession = false
+                local wSerial = tostring(w.serial_number)
                 for _, cw in ipairs(cached.weapons) do
-                    if cw.serial == w.serial_number then
+                    if cw.serial and tostring(cw.serial) == wSerial then
                         w.inPossession = true
                         break
                     end
@@ -161,34 +162,34 @@ RegisterNetEvent('faction:requestGunDrop', function()
     if not xPlayer then return end
 
     if not Config.GunDrops.enabled then
-        lib.notify(source, { type = 'error', description = 'Gun drops are currently disabled.' })
+        Notify(source, 'error', 'Gun drops are currently disabled.')
         return
     end
 
     local row = GetPlayerFactionData(xPlayer.identifier)
     if not row then
-        lib.notify(source, { type = 'error', description = 'You are not in a faction.' })
+        Notify(source, 'error', 'You are not in a faction.')
         return
     end
 
     -- Rank check: boss or big_homie only
     if row.rank ~= 'boss' and row.rank ~= 'big_homie' then
-        lib.notify(source, { type = 'error', description = 'Only Boss or Big Homie can collect gun drops.' })
+        Notify(source, 'error', 'Only Boss or Big Homie can collect gun drops.')
         return
     end
 
     -- Eligibility flag check
     local faction = GetFactionById(row.faction_id)
     if not faction or (faction.gun_drop_eligible ~= 1 and faction.gun_drop_eligible ~= true) then
-        lib.notify(source, { type = 'error', description = 'Your faction is not marked as gun drop eligible.' })
+        Notify(source, 'error', 'Your faction is not marked as gun drop eligible.')
         return
     end
 
     -- Minimum reputation check
     if (faction.reputation or 0) < Config.GunDrops.minReputation then
-        lib.notify(source, { type = 'error', description = string.format(
+        Notify(source, 'error', string.format(
             'Need at least %d reputation for a gun drop (current: %d).',
-            Config.GunDrops.minReputation, faction.reputation) })
+            Config.GunDrops.minReputation, faction.reputation))
         return
     end
 
@@ -203,8 +204,8 @@ RegisterNetEvent('faction:requestGunDrop', function()
     if cooldown and #cooldown > 0 then
         local hrs  = math.floor(cooldown[1].secs_remaining / 3600)
         local mins = math.floor((cooldown[1].secs_remaining % 3600) / 60)
-        lib.notify(source, { type = 'error', description = string.format(
-            'Gun drop on cooldown: %dh %dm remaining.', hrs, mins) })
+        Notify(source, 'error', string.format(
+            'Gun drop on cooldown: %dh %dm remaining.', hrs, mins))
         return
     end
 
@@ -217,7 +218,7 @@ RegisterNetEvent('faction:requestGunDrop', function()
     ]], { row.faction_id })
 
     if not weapons or #weapons == 0 then
-        lib.notify(source, { type = 'error', description = 'No registered weapons with valid hashes found. Ask an admin to register weapons with their weapon hash.' })
+        Notify(source, 'error', 'No registered weapons with valid hashes found. Ask an admin to register weapons with their weapon hash.')
         return
     end
 
@@ -246,11 +247,7 @@ RegisterNetEvent('faction:requestGunDrop', function()
             if info then
                 local count = GiveWeaponsViaESX(info.player, weapons)
                 if count > 0 then
-                    lib.notify(info.src, {
-                        type = 'success', title = 'Gun Drop',
-                        description = string.format('%d weapon(s) added to your inventory.', count),
-                        duration = 8000
-                    })
+                    Notify(info.src, 'success', string.format('%d weapon(s) added to your inventory.', count), 'Gun Drop')
                     table.insert(recipients, info.src)
                 end
             end
@@ -261,8 +258,7 @@ RegisterNetEvent('faction:requestGunDrop', function()
     if #recipients == 0 then
         local count = GiveWeaponsViaESX(xPlayer, weapons)
         if count > 0 then
-            lib.notify(source, { type = 'success', title = 'Gun Drop',
-                description = string.format('%d weapon(s) added to your inventory.', count), duration = 8000 })
+            Notify(source, 'success', string.format('%d weapon(s) added to your inventory.', count), 'Gun Drop')
         end
         table.insert(recipients, source)
     end
@@ -310,13 +306,14 @@ local function RunPossessionScan()
     for _, member in ipairs(allMembers) do
         local info = onlineMap[member.identifier]
         if info then
-            local inv = GetPlayerWeaponInventory(member.identifier)
+            local inv = GetPlayerWeaponInventory(info.src)
             possessionCache[member.identifier] = { lastScan = now, weapons = inv }
 
             for _, w in ipairs(weapons) do
-                if w.faction_id == member.faction_id then
+                if w.faction_id == member.faction_id and w.serial_number then
+                    local wSerial = tostring(w.serial_number)
                     for _, iw in ipairs(inv) do
-                        if iw.serial == w.serial_number then
+                        if iw.serial and tostring(iw.serial) == wSerial then
                             MySQL.update('UPDATE faction_weapons SET holder_identifier = ?, holder_name = ? WHERE id = ?', {
                                 member.identifier, info.player.getName(), w.id
                             })
@@ -343,20 +340,20 @@ end)
 RegisterCommand('factiondrop', function(source, args)
     if source == 0 then return end
     if not IsAdminPlayer(source) then
-        lib.notify(source, { type = 'error', description = 'No permission.' })
+        Notify(source, 'error', 'No permission.')
         return
     end
 
     local input = args[1] and tostring(args[1]):lower() or nil
     if not input then
-        lib.notify(source, { type = 'error', description = 'Usage: /factiondrop [faction_name]' })
+        Notify(source, 'error', 'Usage: /factiondrop [faction_name]')
         return
     end
 
     local rows = MySQL.query.await('SELECT * FROM faction_factions WHERE LOWER(name) = ? OR LOWER(label) = ? LIMIT 1', { input, input })
     local faction = rows and rows[1] or nil
     if not faction then
-        lib.notify(source, { type = 'error', description = 'Faction "' .. input .. '" not found. Use the faction name or label shown in /factionadmin.' })
+        Notify(source, 'error', 'Faction "' .. input .. '" not found. Use the faction name or label shown in /factionadmin.')
         return
     end
 
@@ -370,7 +367,7 @@ RegisterCommand('factiondrop', function(source, args)
     ]], { fid })
 
     if not weapons or #weapons == 0 then
-        lib.notify(source, { type = 'error', description = 'No weapons with hashes registered for ' .. faction.label .. '.' })
+        Notify(source, 'error', 'No weapons with hashes registered for ' .. faction.label .. '.')
         return
     end
 
@@ -393,11 +390,7 @@ RegisterCommand('factiondrop', function(source, args)
             if info then
                 local count = GiveWeaponsViaESX(info.player, weapons)
                 if count > 0 then
-                    lib.notify(info.src, {
-                        type = 'success', title = 'Gun Drop (Admin)',
-                        description = string.format('%d weapon(s) added to your inventory.', count),
-                        duration = 8000
-                    })
+                    Notify(info.src, 'success', string.format('%d weapon(s) added to your inventory.', count), 'Gun Drop (Admin)')
                     table.insert(recipients, info.src)
                 end
             end
@@ -420,8 +413,8 @@ RegisterCommand('factiondrop', function(source, args)
 
     local xPlayer = ESX.GetPlayerFromId(source)
     local adminName = xPlayer and xPlayer.getName() or 'Admin'
-    lib.notify(source, { type = 'success', description = string.format(
-        'Gun drop forced for %s — %d member(s) online received weapons. Timer reset.', faction.label, #recipients) })
+    Notify(source, 'success', string.format(
+        'Gun drop forced for %s — %d member(s) online received weapons. Timer reset.', faction.label, #recipients))
 
     if Config.Webhooks.enabled and Config.Webhooks.weaponLogging ~= '' then
         PerformHttpRequest(Config.Webhooks.weaponLogging, function() end, 'POST',

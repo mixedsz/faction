@@ -27,14 +27,14 @@ RegisterNetEvent('faction:adminCreateFaction', function(name, label, ftype)
     local safeType  = tostring(ftype or 'gang'):sub(1, 32)
 
     if safeName == '' or safeLabel == '' then
-        lib.notify(source, { type = 'error', description = 'Name and label are required.' })
+        Notify(source, 'error', 'Name and label are required.')
         return
     end
 
     -- Check uniqueness
     local existing = MySQL.query.await('SELECT id FROM faction_factions WHERE name = ? LIMIT 1', { safeName })
     if existing and #existing > 0 then
-        lib.notify(source, { type = 'error', description = 'A faction with that name already exists.' })
+        Notify(source, 'error', 'A faction with that name already exists.')
         return
     end
 
@@ -42,7 +42,7 @@ RegisterNetEvent('faction:adminCreateFaction', function(name, label, ftype)
         safeName, safeLabel, safeType
     })
 
-    lib.notify(source, { type = 'success', description = 'Faction "' .. safeLabel .. '" created.' })
+    Notify(source, 'success', 'Faction "' .. safeLabel .. '" created.')
     TriggerClientEvent('faction:refreshFactionList', source)
     -- Refresh admin overview
     TriggerEvent('faction:adminGetFactions')
@@ -63,7 +63,7 @@ RegisterNetEvent('faction:adminDeleteFaction', function(factionId)
     MySQL.update('DELETE FROM faction_violations WHERE faction_id = ?', { fid })
     MySQL.update('DELETE FROM faction_factions WHERE id = ?', { fid })
 
-    lib.notify(source, { type = 'success', description = 'Faction deleted.' })
+    Notify(source, 'success', 'Faction deleted.')
 end)
 
 RegisterNetEvent('faction:adminUpdateFaction', function(factionId, updates)
@@ -103,7 +103,7 @@ RegisterNetEvent('faction:adminUpdateFaction', function(factionId, updates)
     table.insert(vals, fid)
     MySQL.update('UPDATE faction_factions SET ' .. table.concat(sets, ', ') .. ' WHERE id = ?', vals)
 
-    lib.notify(source, { type = 'success', description = 'Faction updated.' })
+    Notify(source, 'success', 'Faction updated.')
 
     -- Push fresh faction data to all online members so their cache stays current
     local members = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { fid })
@@ -162,7 +162,7 @@ RegisterNetEvent('faction:adminInviteMember', function(factionId, targetIdentifi
 
     local faction = GetFactionById(fid)
     if not faction then
-        lib.notify(source, { type = 'error', description = 'Faction not found.' })
+        Notify(source, 'error', 'Faction not found.')
         return
     end
 
@@ -179,14 +179,14 @@ RegisterNetEvent('faction:adminInviteMember', function(factionId, targetIdentifi
     end
 
     if not targetPlayer then
-        lib.notify(source, { type = 'error', description = 'Player not found or not online.' })
+        Notify(source, 'error', 'Player not found or not online.')
         return
     end
 
     -- Check not already in a faction
     local existing = MySQL.query.await('SELECT id FROM faction_members WHERE identifier = ? LIMIT 1', { targetPlayer.identifier })
     if existing and #existing > 0 then
-        lib.notify(source, { type = 'error', description = 'That player is already in a faction.' })
+        Notify(source, 'error', 'That player is already in a faction.')
         return
     end
 
@@ -197,7 +197,7 @@ RegisterNetEvent('faction:adminInviteMember', function(factionId, targetIdentifi
         rankLabel    = rankLabel
     })
 
-    lib.notify(source, { type = 'info', description = 'Invite sent to ' .. targetPlayer.getName() })
+    Notify(source, 'info', 'Invite sent to ' .. targetPlayer.getName())
 end)
 
 RegisterNetEvent('faction:adminKickMember', function(factionId, memberIdOrIdentifier)
@@ -218,7 +218,7 @@ RegisterNetEvent('faction:adminKickMember', function(factionId, memberIdOrIdenti
     end
 
     if not member then
-        lib.notify(source, { type = 'error', description = 'Member not found in that faction.' })
+        Notify(source, 'error', 'Member not found in that faction.')
         return
     end
 
@@ -226,11 +226,11 @@ RegisterNetEvent('faction:adminKickMember', function(factionId, memberIdOrIdenti
 
     local kicked = ESX.GetPlayerFromIdentifier(member.identifier)
     if kicked then
-        lib.notify(kicked.source, { type = 'error', description = 'You have been removed from your faction.' })
+        Notify(kicked.source, 'error', 'You have been removed from your faction.')
         TriggerClientEvent('faction:receiveFactionData', kicked.source, { faction = nil, rank = nil })
     end
 
-    lib.notify(source, { type = 'success', description = 'Member kicked.' })
+    Notify(source, 'success', 'Member kicked.')
 end)
 
 RegisterNetEvent('faction:adminSetMemberRank', function(factionId, memberIdOrIdentifier, rank)
@@ -247,7 +247,7 @@ RegisterNetEvent('faction:adminSetMemberRank', function(factionId, memberIdOrIde
         MySQL.update('UPDATE faction_members SET rank = ? WHERE identifier = ? AND faction_id = ?', { rank, tostring(memberIdOrIdentifier), fid })
     end
 
-    lib.notify(source, { type = 'success', description = 'Rank updated.' })
+    Notify(source, 'success', 'Rank updated.')
 end)
 
 RegisterNetEvent('faction:adminTransferBoss', function(factionId, memberIdOrIdentifier)
@@ -268,7 +268,7 @@ RegisterNetEvent('faction:adminTransferBoss', function(factionId, memberIdOrIden
         MySQL.update("UPDATE faction_members SET rank = 'boss' WHERE identifier = ? AND faction_id = ?", { tostring(memberIdOrIdentifier), fid })
     end
 
-    lib.notify(source, { type = 'success', description = 'Leadership transferred.' })
+    Notify(source, 'success', 'Leadership transferred.')
 end)
 
 -- ============================================================
@@ -313,14 +313,14 @@ RegisterNetEvent('faction:adminRegisterWeapon', function(factionId, weaponName, 
     local safeHash   = weaponHash and tostring(weaponHash):sub(1, 64) or nil
 
     if safeName == '' or safeSerial == '' then
-        lib.notify(source, { type = 'error', description = 'Weapon name and serial number are required.' })
+        Notify(source, 'error', 'Weapon name and serial number are required.')
         return
     end
 
     -- Check serial uniqueness
     local existing = MySQL.query.await('SELECT id FROM faction_weapons WHERE serial_number = ? LIMIT 1', { safeSerial })
     if existing and #existing > 0 then
-        lib.notify(source, { type = 'error', description = 'A weapon with that serial number already exists.' })
+        Notify(source, 'error', 'A weapon with that serial number already exists.')
         return
     end
 
@@ -328,7 +328,7 @@ RegisterNetEvent('faction:adminRegisterWeapon', function(factionId, weaponName, 
         fid, safeName, safeSerial, safeHash
     })
 
-    lib.notify(source, { type = 'success', description = 'Weapon registered.' })
+    Notify(source, 'success', 'Weapon registered.')
 
     -- Notify faction members
     NotifyFactionMembers(fid, 'faction:refreshWeapons', {})
@@ -355,7 +355,7 @@ RegisterNetEvent('faction:adminDeleteWeapon', function(weaponId)
         NotifyFactionMembers(weapon[1].faction_id, 'faction:refreshWeapons', {})
     end
 
-    lib.notify(source, { type = 'success', description = 'Weapon deleted.' })
+    Notify(source, 'success', 'Weapon deleted.')
 end)
 
 -- ============================================================
@@ -432,7 +432,7 @@ RegisterNetEvent('faction:adminUpdateReport', function(reportId, status)
         end
     end
 
-    lib.notify(source, { type = 'success', description = 'Report updated.' })
+    Notify(source, 'success', 'Report updated.')
 end)
 
 RegisterNetEvent('faction:adminDeleteReport', function(reportId)
@@ -443,7 +443,7 @@ RegisterNetEvent('faction:adminDeleteReport', function(reportId)
     if not rid then return end
 
     MySQL.update('DELETE FROM faction_reports WHERE id = ?', { rid })
-    lib.notify(source, { type = 'success', description = 'Report deleted.' })
+    Notify(source, 'success', 'Report deleted.')
 end)
 
 -- ============================================================
@@ -506,7 +506,7 @@ RegisterNetEvent('faction:adminUpdateCK', function(ckId, status)
         end
     end
 
-    lib.notify(source, { type = 'success', description = 'CK request updated.' })
+    Notify(source, 'success', 'CK request updated.')
 end)
 
 -- ============================================================
@@ -544,12 +544,12 @@ RegisterNetEvent('faction:adminCreateRule', function(data)
     local order    = tonumber(data.order) or 0
 
     if title == '' or content == '' then
-        lib.notify(source, { type = 'error', description = 'Title and content are required.' })
+        Notify(source, 'error', 'Title and content are required.')
         return
     end
 
     if isGlobal == 0 and not fid then
-        lib.notify(source, { type = 'error', description = 'A faction must be selected for faction-specific rules.' })
+        Notify(source, 'error', 'A faction must be selected for faction-specific rules.')
         return
     end
 
@@ -557,7 +557,7 @@ RegisterNetEvent('faction:adminCreateRule', function(data)
         fid, title, content, isGlobal, order
     })
 
-    lib.notify(source, { type = 'success', description = 'Rule created.' })
+    Notify(source, 'success', 'Rule created.')
     TriggerClientEvent('faction:adminRefreshRules', source)
 end)
 
@@ -579,7 +579,7 @@ RegisterNetEvent('faction:adminUpdateRule', function(data)
         title, content, isGlobal, fid, order, rid
     })
 
-    lib.notify(source, { type = 'success', description = 'Rule updated.' })
+    Notify(source, 'success', 'Rule updated.')
     TriggerClientEvent('faction:adminRefreshRules', source)
 end)
 
@@ -591,6 +591,6 @@ RegisterNetEvent('faction:adminDeleteRule', function(ruleId)
     if not rid then return end
 
     MySQL.update('DELETE FROM faction_rules WHERE id = ?', { rid })
-    lib.notify(source, { type = 'success', description = 'Rule deleted.' })
+    Notify(source, 'success', 'Rule deleted.')
     TriggerClientEvent('faction:adminRefreshRules', source)
 end)

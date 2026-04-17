@@ -85,7 +85,7 @@ RegisterNetEvent('faction:adminSetCooldown', function(factionId, cooldownType, d
         ON DUPLICATE KEY UPDATE expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND), reason = ?
     ]], { fid, safeType, dur, safeReason, dur, safeReason })
 
-    lib.notify(source, { type = 'success', description = 'Cooldown set.' })
+    Notify(source, 'success', 'Cooldown set.')
 
     -- Notify affected faction members to refresh
     NotifyFactionMembers(fid, 'faction:refreshCooldowns', {})
@@ -109,6 +109,6 @@ RegisterNetEvent('faction:adminRemoveCooldown', function(cooldownId)
         NotifyFactionMembers(cd[1].faction_id, 'faction:refreshCooldowns', {})
     end
 
-    lib.notify(source, { type = 'success', description = 'Cooldown removed.' })
+    Notify(source, 'success', 'Cooldown removed.')
     TriggerClientEvent('faction:adminRefreshCooldowns', source)
 end)

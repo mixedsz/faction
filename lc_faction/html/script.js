@@ -230,9 +230,10 @@
             const initials = (member.player_name || 'U').split(' ').map(n => n.charAt(0)).join('').toUpperCase().substring(0, 2);
             const nameHash = (member.player_name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
             const hue = (nameHash * 7) % 360;
-            const color = `hsl(${hue}, 65%, 50%)`;
+            const isOnline = member.online === true || member.online === 1;
+            const color = isOnline ? `hsl(${hue}, 65%, 50%)` : '#52525b';
             const rankLabel = getRankLabel(member.rank);
-            
+
             html += `
                 <div class="member-item" data-member-id="${member.id}" data-identifier="${escapeHtml(member.identifier || '')}">
                     <div style="display: flex; align-items: center; gap: 14px; flex: 1;">
@@ -242,7 +243,8 @@
                         <div style="flex: 1;">
                             <div class="player-name">${escapeHtml(member.player_name || 'Unknown')}</div>
                             <div style="color: #71717a; font-size: 12px; margin-top: 2px;">
-                                ${escapeHtml(rankLabel)} • Rep: ${member.reputation_contribution || 0}
+                                <span style="color: ${isOnline ? '#22c55e' : '#71717a'}">${isOnline ? '●' : '○'}</span>
+                                ${isOnline ? 'Online' : 'Offline'} • ${escapeHtml(rankLabel)} • Rep: ${member.reputation_contribution || 0}
                             </div>
                         </div>
                     </div>
@@ -439,21 +441,31 @@
     // Matches the dark zinc UI design (#18181b background, zinc palette)
     // ============================================================
 
-    function showToast(message, type) {
-        type = type || 'error';
+    function showToast(messageOrOpts, typeArg) {
+        var message, type, title;
+        if (messageOrOpts && typeof messageOrOpts === 'object') {
+            message = messageOrOpts.description || messageOrOpts.message || '';
+            type    = messageOrOpts.type || typeArg || 'info';
+            title   = messageOrOpts.title || null;
+        } else {
+            message = messageOrOpts || '';
+            type    = typeArg || 'info';
+            title   = null;
+        }
+
         var container = document.getElementById('nui-toast-container');
         if (!container) {
             container = document.createElement('div');
             container.id = 'nui-toast-container';
-            container.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;min-width:280px;max-width:460px;';
+            container.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;min-width:300px;max-width:480px;';
             document.body.appendChild(container);
         }
 
         var colors = {
-            success: { bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.45)',  accent: '#22c55e' },
-            error:   { bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.45)',  accent: '#ef4444' },
-            warning: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.45)', accent: '#f59e0b' },
-            info:    { bg: 'rgba(59,130,246,0.12)',  border: 'rgba(59,130,246,0.45)', accent: '#3b82f6' }
+            success: { border: 'rgba(34,197,94,0.5)',  accent: '#22c55e' },
+            error:   { border: 'rgba(239,68,68,0.5)',  accent: '#ef4444' },
+            warning: { border: 'rgba(245,158,11,0.5)', accent: '#f59e0b' },
+            info:    { border: 'rgba(59,130,246,0.5)',  accent: '#3b82f6' }
         };
         var icons = {
             success: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
@@ -464,24 +476,28 @@
 
         var c = colors[type] || colors.info;
         var icon = icons[type] || icons.info;
+        var bodyHtml = title
+            ? '<div style="font-weight:600;color:#f4f4f5;font-size:0.875rem;margin-bottom:2px;font-family:\'DM Sans\',sans-serif;">' + escapeHtml(title) + '</div>'
+              + '<div style="color:#a1a1aa;font-size:0.8125rem;line-height:1.4;font-family:\'DM Sans\',sans-serif;">' + escapeHtml(message) + '</div>'
+            : '<div style="color:#e4e4e7;font-size:0.875rem;line-height:1.45;font-family:\'DM Sans\',sans-serif;">' + escapeHtml(message) + '</div>';
 
         var toast = document.createElement('div');
-        toast.style.cssText = 'background:#18181b;border:1px solid ' + c.border + ';border-left:3px solid ' + c.accent + ';border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px;pointer-events:auto;box-shadow:0 4px 24px rgba(0,0,0,0.6);transform:translateX(120%);transition:transform 0.28s cubic-bezier(0.34,1.56,0.64,1),opacity 0.28s ease;opacity:0;min-width:220px;';
-        toast.innerHTML = '<div style="color:' + c.accent + ';flex-shrink:0;margin-top:1px;">' + icon + '</div><div style="color:#e4e4e7;font-size:0.875rem;line-height:1.45;font-family:\'DM Sans\',sans-serif;flex:1;">' + escapeHtml(message) + '</div>';
+        toast.style.cssText = 'background:#18181b;border:1px solid ' + c.border + ';border-left:3px solid ' + c.accent + ';border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px;pointer-events:auto;box-shadow:0 4px 24px rgba(0,0,0,0.6);transform:translateY(-110%);transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s ease;opacity:0;width:100%;box-sizing:border-box;';
+        toast.innerHTML = '<div style="color:' + c.accent + ';flex-shrink:0;margin-top:2px;">' + icon + '</div><div style="flex:1;">' + bodyHtml + '</div>';
         container.appendChild(toast);
 
         requestAnimationFrame(function() {
             requestAnimationFrame(function() {
-                toast.style.transform = 'translateX(0)';
+                toast.style.transform = 'translateY(0)';
                 toast.style.opacity = '1';
             });
         });
 
         setTimeout(function() {
-            toast.style.transform = 'translateX(120%)';
+            toast.style.transform = 'translateY(-110%)';
             toast.style.opacity = '0';
             setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
-        }, 3800);
+        }, 4500);
     }
 
     function showConfirm(message, onConfirm) {
@@ -2531,7 +2547,12 @@
     function renderAdminCooldownsTab(content) {
         const cooldowns = content.cooldowns || [];
         const factions = content.factions || [];
-        
+
+        if (window.adminCooldownIntervals) {
+            window.adminCooldownIntervals.forEach(i => clearInterval(i));
+        }
+        window.adminCooldownIntervals = [];
+
         let html = `
             <div class="cooldowns-admin-container">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -2544,19 +2565,20 @@
                     </button>
                 </div>
         `;
-        
+
         if (cooldowns.length === 0) {
             html += '<div class="empty-state"><span class="empty-text">No active cooldowns</span></div>';
         } else {
             html += '<div class="cooldowns-list">';
             cooldowns.forEach(cooldown => {
-                const secsRemaining = typeof cooldown.seconds_remaining === 'number' ? cooldown.seconds_remaining : 0;
+                const secsRemaining = parseInt(cooldown.seconds_remaining, 10) || 0;
+                const endMs = Date.now() + secsRemaining * 1000;
                 const timeRemaining = formatTimeRemaining(secsRemaining);
                 const typeLabel = getCooldownTypeLabel(cooldown.type);
                 const endsAtDisplay = cooldown.ends_at ? formatDate(cooldown.ends_at) : 'Unknown';
 
                 html += `
-                    <div class="cooldown-card" data-cooldown-id="${cooldown.id}" style="background: #27272a; border: 1px solid #3f3f46; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+                    <div class="cooldown-card" id="admin-cd-${cooldown.id}" data-cooldown-id="${cooldown.id}" data-end-ms="${endMs}" style="background: #27272a; border: 1px solid #3f3f46; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
                         <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
                             <div class="faction-icon-small" style="background: #f59e0b; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 14px; flex-shrink: 0;">
                                 ${escapeHtml((cooldown.faction_label || 'Unknown').charAt(0).toUpperCase())}
@@ -2566,7 +2588,7 @@
                                     ${escapeHtml(cooldown.faction_label || 'Unknown Faction')}
                                 </div>
                                 <div style="color: #71717a; font-size: 0.8125rem; margin-bottom: 0.25rem;">
-                                    Type: ${escapeHtml(typeLabel)} | Remaining: <span style="color: #f59e0b; font-weight: 600;">${timeRemaining}</span>
+                                    Type: ${escapeHtml(typeLabel)} | Remaining: <span class="admin-cd-timer" style="color: #f59e0b; font-weight: 600;">${timeRemaining}</span>
                                 </div>
                                 <div style="color: #71717a; font-size: 0.75rem; margin-top: 0.5rem;">
                                     Ends: ${endsAtDisplay}
@@ -2574,7 +2596,7 @@
                             </div>
                         </div>
                         <div class="cooldown-actions">
-                            <button class="btn-action-small btn-remove-cooldown" 
+                            <button class="btn-action-small btn-remove-cooldown"
                                     data-cooldown-id="${cooldown.id}"
                                     title="Remove Cooldown">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2587,10 +2609,38 @@
             });
             html += '</div>';
         }
-        
+
         html += '</div>';
         tabContent.innerHTML = html;
-        
+
+        // Live countdown timers for admin cooldowns
+        cooldowns.forEach(cooldown => {
+            const card = document.getElementById(`admin-cd-${cooldown.id}`);
+            if (!card) return;
+            const endMs = parseInt(card.getAttribute('data-end-ms'), 10);
+            if (!endMs) return;
+            const timerEl = card.querySelector('.admin-cd-timer');
+            if (!timerEl) return;
+
+            const interval = setInterval(() => {
+                try {
+                    const diff = Math.max(0, Math.floor((endMs - Date.now()) / 1000));
+                    if (diff <= 0) {
+                        timerEl.textContent = 'Expired';
+                        timerEl.style.color = '#ef4444';
+                        clearInterval(interval);
+                        const idx = window.adminCooldownIntervals.indexOf(interval);
+                        if (idx > -1) window.adminCooldownIntervals.splice(idx, 1);
+                        setTimeout(() => post('requestTabData', { tab: 'cooldowns', isAdmin: true }), 1000);
+                    } else {
+                        timerEl.textContent = formatTimeRemaining(diff);
+                    }
+                } catch (e) { clearInterval(interval); }
+            }, 1000);
+
+            window.adminCooldownIntervals.push(interval);
+        });
+
         // Attach event listeners
         const createBtn = tabContent.querySelector('#btn-create-cooldown');
         if (createBtn) {
@@ -2598,7 +2648,7 @@
                 showCreateCooldownDialog(factions);
             });
         }
-        
+
         tabContent.querySelectorAll('.btn-remove-cooldown').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -2727,9 +2777,10 @@
                 const timeRemaining = formatTimeRemaining(secsRemaining);
                 const typeLabel = getCooldownTypeLabel(type);
                 const cooldownId = `cooldown-${cooldown.id}`;
+                const endMs = Date.now() + secsRemaining * 1000;
 
                 html += `
-                    <div class="cooldown-card" id="${cooldownId}" style="background: #27272a; border: 1px solid #3f3f46; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem;" data-ends-at="${escapeHtml(endsAt)}">
+                    <div class="cooldown-card" id="${cooldownId}" style="background: #27272a; border: 1px solid #3f3f46; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem;" data-end-ms="${endMs}">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <div class="faction-icon-small" style="background: #f59e0b; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 14px; flex-shrink: 0;">
                                 ${escapeHtml(typeLabel.charAt(0).toUpperCase())}
@@ -2790,14 +2841,14 @@
         cooldowns.forEach(cooldown => {
             const cooldownCard = document.getElementById(`cooldown-${cooldown.id}`);
             if (!cooldownCard) return;
-            const endsAt = cooldownCard.getAttribute('data-ends-at');
-            if (!endsAt) return;
+            const endMs = parseInt(cooldownCard.getAttribute('data-end-ms'), 10);
+            if (!endMs) return;
             const timerElement = cooldownCard.querySelector('.cooldown-timer');
             if (!timerElement) return;
 
             const interval = setInterval(() => {
                 try {
-                    const diff = Math.max(0, Math.floor((new Date(endsAt) - new Date()) / 1000));
+                    const diff = Math.max(0, Math.floor((endMs - Date.now()) / 1000));
                     if (diff <= 0) {
                         timerElement.textContent = 'Expired';
                         timerElement.style.color = '#ef4444';
@@ -2929,6 +2980,11 @@
             switchTab('overview');
         }
         
+        if (data.action === 'showNotification') {
+            showToast(data);
+            return;
+        }
+
         if (data.action === 'close') {
             close();
         }

@@ -133,12 +133,12 @@ RegisterNetEvent('faction:claimTerritory', function(data)
 
     local row = GetPlayerFactionData(xPlayer.identifier)
     if not row then
-        lib.notify(source, { type = 'error', description = 'You are not in a faction.' })
+        Notify(source, 'error', 'You are not in a faction.')
         return
     end
 
     if row.rank ~= 'boss' and row.rank ~= 'big_homie' then
-        lib.notify(source, { type = 'error', description = 'Only Boss or Big Homie can claim territory.' })
+        Notify(source, 'error', 'Only Boss or Big Homie can claim territory.')
         return
     end
 
@@ -152,7 +152,7 @@ RegisterNetEvent('faction:claimTerritory', function(data)
 
     if cooldown and #cooldown > 0 then
         local mins = math.ceil(cooldown[1].secs_remaining / 60)
-        lib.notify(source, { type = 'error', description = string.format('Territory claim on cooldown: %d minute(s) remaining.', mins) })
+        Notify(source, 'error', string.format('Territory claim on cooldown: %d minute(s) remaining.', mins))
         return
     end
 
@@ -166,9 +166,9 @@ RegisterNetEvent('faction:claimTerritory', function(data)
     end
 
     if activeMemberCount < Config.Territory.minMembers then
-        lib.notify(source, { type = 'error', description = string.format(
+        Notify(source, 'error', string.format(
             'Need at least %d active members online to claim territory (currently %d).',
-            Config.Territory.minMembers, activeMemberCount) })
+            Config.Territory.minMembers, activeMemberCount))
         return
     end
 
@@ -198,7 +198,7 @@ RegisterNetEvent('faction:claimTerritory', function(data)
     })
 
     InvalidateTerritoryCache()
-    lib.notify(source, { type = 'success', description = 'Territory "' .. name .. '" claimed!' })
+    Notify(source, 'success', 'Territory "' .. name .. '" claimed!')
 end)
 
 -- ============================================================
@@ -239,7 +239,7 @@ RegisterNetEvent('faction:adminAssignTerritory', function(factionId, data)
     ]], { fid, name, ttype, x, y, z, radius, stashId })
 
     InvalidateTerritoryCache()
-    lib.notify(source, { type = 'success', description = 'Territory assigned.' })
+    Notify(source, 'success', 'Territory assigned.')
 
     -- Refresh manage view for this faction
     local faction = GetFactionById(fid)
@@ -277,7 +277,7 @@ RegisterNetEvent('faction:adminDeleteTerritory', function(territoryId, factionId
     MySQL.update('DELETE FROM faction_territory WHERE id = ?', { tid })
     InvalidateTerritoryCache()
 
-    lib.notify(source, { type = 'success', description = 'Territory deleted.' })
+    Notify(source, 'success', 'Territory deleted.')
 
     -- Refresh the manage view for the faction
     local fid = tonumber(factionId)

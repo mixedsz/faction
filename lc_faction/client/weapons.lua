@@ -109,10 +109,10 @@ end)
 -- ============================================================
 RegisterNetEvent('faction:receiveNotification', function(data)
     if not data then return end
-    lib.notify({
+    SendNUIMessage({
+        action      = 'showNotification',
         type        = data.type or 'info',
         title       = data.title or nil,
-        description = data.description or '',
-        duration    = data.duration or 5000
+        description = data.description or ''
     })
 end)

@@ -91,7 +91,7 @@ RegisterNetEvent('faction:adminSetConflictStatus', function(conflictId, status)
         RefreshFactionWarCount(c[1].faction2_id)
     end
 
-    lib.notify(source, { type = 'success', description = 'Conflict status updated.' })
+    Notify(source, 'success', 'Conflict status updated.')
 
     -- Push updated list to all online admins
     PushConflictsToAdmins()
@@ -105,7 +105,7 @@ RegisterNetEvent('faction:adminCreateConflict', function(faction1Id, faction2Id,
     local f1 = tonumber(faction1Id)
     local f2 = tonumber(faction2Id)
     if not f1 or not f2 or f1 == f2 then
-        lib.notify(source, { type = 'error', description = 'Invalid faction IDs.' })
+        Notify(source, 'error', 'Invalid faction IDs.')
         return
     end
 
@@ -121,7 +121,7 @@ RegisterNetEvent('faction:adminCreateConflict', function(faction1Id, faction2Id,
     ]], { f1, f2, f2, f1 })
 
     if existing and #existing > 0 then
-        lib.notify(source, { type = 'error', description = 'These factions already have an active conflict.' })
+        Notify(source, 'error', 'These factions already have an active conflict.')
         return
     end
 
@@ -133,7 +133,7 @@ RegisterNetEvent('faction:adminCreateConflict', function(faction1Id, faction2Id,
     RefreshFactionWarCount(f1)
     RefreshFactionWarCount(f2)
 
-    lib.notify(source, { type = 'success', description = 'Conflict created.' })
+    Notify(source, 'success', 'Conflict created.')
 
     -- Push updated list to all online admins
     PushConflictsToAdmins()
@@ -155,7 +155,7 @@ RegisterNetEvent('faction:adminEndWar', function(warId)
         RefreshFactionWarCount(c[1].faction2_id)
     end
 
-    lib.notify(source, { type = 'success', description = 'War ended.' })
+    Notify(source, 'success', 'War ended.')
     PushConflictsToAdmins()
 end)
 
@@ -172,6 +172,6 @@ RegisterNetEvent('faction:adminSetWarDuration', function(warId, durationSeconds)
         UPDATE faction_conflicts SET ended_at = DATE_ADD(started_at, INTERVAL ? SECOND) WHERE id = ?
     ]], { dur, wid })
 
-    lib.notify(source, { type = 'success', description = 'War duration set.' })
+    Notify(source, 'success', 'War duration set.')
     PushConflictsToAdmins()
 end)

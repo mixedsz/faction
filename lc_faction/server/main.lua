@@ -100,7 +100,7 @@ RegisterNetEvent('faction:checkAdminAndOpenPanel', function()
     if IsAdminPlayer(source) then
         TriggerClientEvent('faction:openAdminPanel', source)
     else
-        lib.notify(source, { type = 'error', description = 'You do not have permission to access the admin panel.' })
+        Notify(source, 'error', 'You do not have permission to access the admin panel.')
     end
 end)
 
@@ -116,13 +116,13 @@ RegisterNetEvent('faction:respondToInvite', function(factionId, accepted, rank)
     -- Verify no existing membership
     local existing = MySQL.query.await('SELECT id FROM faction_members WHERE identifier = ? LIMIT 1', { identifier })
     if existing and #existing > 0 then
-        lib.notify(source, { type = 'error', description = 'You are already in a faction.' })
+        Notify(source, 'error', 'You are already in a faction.')
         return
     end
 
     local faction = GetFactionById(factionId)
     if not faction then
-        lib.notify(source, { type = 'error', description = 'Faction no longer exists.' })
+        Notify(source, 'error', 'Faction no longer exists.')
         return
     end
 
@@ -132,7 +132,7 @@ RegisterNetEvent('faction:respondToInvite', function(factionId, accepted, rank)
         factionId, identifier, xPlayer.getName(), safeRank
     })
 
-    lib.notify(source, { type = 'success', description = 'You have joined ' .. faction.label .. '!' })
+    Notify(source, 'success', 'You have joined ' .. faction.label .. '!')
     TriggerClientEvent('faction:requestFactionData', source)
 end)
 
@@ -140,12 +140,27 @@ end)
 function NotifyFactionMembers(factionId, eventName, data)
     local members = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { factionId })
     if not members then return end
-    for _, m in ipairs(members) do
-        local xPlayer = ESX.GetPlayerFromIdentifier(m.identifier)
-        if xPlayer then
-            TriggerClientEvent(eventName, xPlayer.source, data)
+    local onlineMap = {}
+    for _, pid in ipairs(GetPlayers()) do
+        local src = tonumber(pid)
+        if src then
+            local p = ESX.GetPlayerFromId(src)
+            if p and p.identifier then onlineMap[p.identifier] = src end
         end
     end
+    for _, m in ipairs(members) do
+        local src = onlineMap[m.identifier]
+        if src then TriggerClientEvent(eventName, src, data) end
+    end
+end
+
+-- Send a custom notification to a specific player (uses NUI toast, no ox_lib)
+function Notify(src, ntype, message, title)
+    TriggerClientEvent('faction:receiveNotification', src, {
+        type        = ntype or 'info',
+        description = message or '',
+        title       = title or nil
+    })
 end
 
 -- Submit a report
@@ -156,7 +171,7 @@ RegisterNetEvent('faction:submitReport', function(reportType, details, targetFac
 
     local row = GetPlayerFactionData(xPlayer.identifier)
     if not row then
-        lib.notify(source, { type = 'error', description = 'You are not in a faction.' })
+        Notify(source, 'error', 'You are not in a faction.')
         return
     end
 
@@ -169,7 +184,7 @@ RegisterNetEvent('faction:submitReport', function(reportType, details, targetFac
         VALUES (?, ?, ?, ?, ?, ?)
     ]], { row.faction_id, targetId, xPlayer.identifier, xPlayer.getName(), safeType, safeDetails })
 
-    lib.notify(source, { type = 'success', description = 'Report submitted successfully.' })
+    Notify(source, 'success', 'Report submitted successfully.')
 
     -- Notify webhooks if configured
     if Config.Webhooks.enabled and Config.Webhooks.reportSubmitted ~= '' then
@@ -225,7 +240,7 @@ RegisterNetEvent('faction:addWarning', function(memberId, reason)
 
     -- Only boss/big_homie can add warnings
     if row.rank ~= 'boss' and row.rank ~= 'big_homie' then
-        lib.notify(source, { type = 'error', description = 'Insufficient rank to add warnings.' })
+        Notify(source, 'error', 'Insufficient rank to add warnings.')
         return
     end
 
@@ -238,7 +253,7 @@ RegisterNetEvent('faction:addWarning', function(memberId, reason)
         })
     end
 
-    lib.notify(source, { type = 'success', description = 'Warning added.' })
+    Notify(source, 'success', 'Warning added.')
 end)
 
 -- Get faction rules (member side)

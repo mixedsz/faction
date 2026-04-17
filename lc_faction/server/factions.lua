@@ -71,14 +71,14 @@ RegisterNetEvent('faction:requestCK', function(targetIdentifier, targetName, rea
 
     local row = GetPlayerFactionData(xPlayer.identifier)
     if not row then
-        lib.notify(source, { type = 'error', description = 'You are not in a faction.' })
+        Notify(source, 'error', 'You are not in a faction.')
         return
     end
 
     -- Rank check: shot_caller and above
     local rank = row.rank
     if rank ~= 'boss' and rank ~= 'big_homie' and rank ~= 'shot_caller' then
-        lib.notify(source, { type = 'error', description = 'Insufficient rank to submit CK requests.' })
+        Notify(source, 'error', 'Insufficient rank to submit CK requests.')
         return
     end
 
@@ -92,7 +92,7 @@ RegisterNetEvent('faction:requestCK', function(targetIdentifier, targetName, rea
 
     if cooldown and #cooldown > 0 then
         local mins = math.ceil(cooldown[1].secs_remaining / 60)
-        lib.notify(source, { type = 'error', description = string.format('CK cooldown active: %d minute(s) remaining.', mins) })
+        Notify(source, 'error', string.format('CK cooldown active: %d minute(s) remaining.', mins))
         return
     end
 
@@ -112,5 +112,5 @@ RegisterNetEvent('faction:requestCK', function(targetIdentifier, targetName, rea
         ON DUPLICATE KEY UPDATE expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND), reason = 'CK request submitted'
     ]], { row.faction_id, Config.Conflict.ckCooldown, Config.Conflict.ckCooldown })
 
-    lib.notify(source, { type = 'success', description = 'CK request submitted for admin review.' })
+    Notify(source, 'success', 'CK request submitted for admin review.')
 end)
