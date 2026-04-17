@@ -127,46 +127,31 @@ end)
 -- GUN DROP SYSTEM
 -- ============================================================
 
--- Give faction weapons to a player. Tries ox_inventory first, then ESX addWeapon.
--- Returns the number of weapons given (based on actual API success).
+-- Give faction weapons to a player via ox_inventory (with serial metadata) or ESX fallback.
 local function GiveWeaponsViaESX(xPlayer, weapons)
     local src   = xPlayer.source
-    local ident = xPlayer.identifier
     local count = 0
-
-    print(string.format('[faction:gunDrop] Giving %d weapon(s) to %s (src %d)', #weapons, ident, src or -1))
 
     for _, w in ipairs(weapons) do
         local raw = tostring(w.weapon_hash or ''):gsub('%s+', '')
-        print(string.format('[faction:gunDrop]  -> weapon "%s" | hash/spawn: "%s"', tostring(w.weapon_name), raw))
-
-        if raw == '' then
-            print('[faction:gunDrop]     SKIP: empty hash')
-        else
-            local itemName = raw:lower()   -- ox_inventory uses lowercase item names
-            local weaponNameUpper = raw:upper()
-
-            -- Try ox_inventory (present on this server)
-            local hasOxInv = exports.ox_inventory ~= nil
-            if hasOxInv then
-                local ok, err = pcall(function()
-                    local success = exports.ox_inventory:AddItem(src, itemName, 1)
-                    print(string.format('[faction:gunDrop]     ox_inventory:AddItem("%s") -> %s', itemName, tostring(success)))
+        if raw ~= '' then
+            if exports.ox_inventory then
+                local serial   = w.serial_number and tostring(w.serial_number) or nil
+                local metadata = serial and { serial = serial } or nil
+                local ok, err  = pcall(function()
+                    local success = exports.ox_inventory:AddItem(src, raw:lower(), 1, metadata)
                     if success then count = count + 1 end
                 end)
                 if not ok then
-                    print(string.format('[faction:gunDrop]     ox_inventory ERROR: %s', tostring(err)))
+                    print(string.format('[faction:gunDrop] ox_inventory:AddItem error for %s: %s', raw, tostring(err)))
                 end
             else
-                -- Fallback: ESX addWeapon
-                local ok, err = pcall(function() xPlayer.addWeapon(weaponNameUpper, 250) end)
-                print(string.format('[faction:gunDrop]     xPlayer.addWeapon("%s") pcall ok=%s err=%s', weaponNameUpper, tostring(ok), tostring(err)))
+                local ok = pcall(function() xPlayer.addWeapon(raw:upper(), 250) end)
                 if ok then count = count + 1 end
             end
         end
     end
 
-    print(string.format('[faction:gunDrop] Done — %d weapon(s) given to %s', count, ident))
     return count
 end
 
@@ -289,6 +274,9 @@ RegisterNetEvent('faction:requestGunDrop', function()
         description = string.format('%s triggered a gun drop — %d online member(s) armed up.', xPlayer.getName(), #recipients)
     })
 
+    -- Run possession scan shortly after so new serials are tracked immediately
+    SetTimeout(3000, function() RunPossessionScan() end)
+
     -- Webhook
     if Config.Webhooks.enabled and Config.Webhooks.weaponLogging ~= '' then
         PerformHttpRequest(Config.Webhooks.weaponLogging, function() end, 'POST',
@@ -300,41 +288,51 @@ RegisterNetEvent('faction:requestGunDrop', function()
 end)
 
 -- Background possession scan: update who holds each registered weapon
-CreateThread(function()
-    while true do
-        Wait(Config.Weapons.possessionScanInterval * 1000)
+local function RunPossessionScan()
+    local weapons = MySQL.query.await('SELECT id, faction_id, serial_number FROM faction_weapons WHERE serial_number IS NOT NULL AND serial_number != \'\'')
+    if not weapons or #weapons == 0 then return end
 
-        local weapons = MySQL.query.await('SELECT id, faction_id, serial_number, weapon_hash FROM faction_weapons')
-        if not weapons then goto continue end
+    -- Build online player map: identifier -> { src, player }
+    local onlineMap = {}
+    for _, pid in ipairs(GetPlayers()) do
+        local src = tonumber(pid)
+        if src then
+            local p = ESX.GetPlayerFromId(src)
+            if p and p.identifier then onlineMap[p.identifier] = { src = src, player = p } end
+        end
+    end
 
-        local allMembers = MySQL.query.await('SELECT DISTINCT identifier, faction_id FROM faction_members')
-        if not allMembers then goto continue end
+    local allMembers = MySQL.query.await('SELECT DISTINCT identifier, faction_id FROM faction_members')
+    if not allMembers then return end
 
-        local now = os.time()
+    local now = os.time()
 
-        for _, member in ipairs(allMembers) do
-            local xPlayer = ESX.GetPlayerFromIdentifier(member.identifier)
-            if xPlayer then
-                local inv = GetPlayerWeaponInventory(member.identifier)
-                possessionCache[member.identifier] = { lastScan = now, weapons = inv }
+    for _, member in ipairs(allMembers) do
+        local info = onlineMap[member.identifier]
+        if info then
+            local inv = GetPlayerWeaponInventory(member.identifier)
+            possessionCache[member.identifier] = { lastScan = now, weapons = inv }
 
-                -- Update holder on matched weapons by serial number
-                for _, w in ipairs(weapons) do
-                    if w.faction_id == member.faction_id then
-                        for _, iw in ipairs(inv) do
-                            if iw.serial == w.serial_number then
-                                MySQL.update('UPDATE faction_weapons SET holder_identifier = ?, holder_name = ? WHERE id = ?', {
-                                    member.identifier, xPlayer.getName(), w.id
-                                })
-                                break
-                            end
+            for _, w in ipairs(weapons) do
+                if w.faction_id == member.faction_id then
+                    for _, iw in ipairs(inv) do
+                        if iw.serial == w.serial_number then
+                            MySQL.update('UPDATE faction_weapons SET holder_identifier = ?, holder_name = ? WHERE id = ?', {
+                                member.identifier, info.player.getName(), w.id
+                            })
+                            break
                         end
                     end
                 end
             end
         end
+    end
+end
 
-        ::continue::
+CreateThread(function()
+    while true do
+        Wait(Config.Weapons.possessionScanInterval * 1000)
+        RunPossessionScan()
     end
 end)
 
@@ -417,6 +415,8 @@ RegisterCommand('factiondrop', function(source, args)
         title       = 'Gun Drop (Admin)',
         description = string.format('Admin triggered a gun drop — %d online member(s) armed up.', #recipients)
     })
+
+    SetTimeout(3000, function() RunPossessionScan() end)
 
     local xPlayer = ESX.GetPlayerFromId(source)
     local adminName = xPlayer and xPlayer.getName() or 'Admin'
