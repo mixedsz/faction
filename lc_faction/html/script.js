@@ -2701,38 +2701,35 @@
     }
     
     function renderMemberCooldownsTab(content) {
-        const cooldowns = content.cooldowns || {};
-        const cooldownsWithEndsAt = content.cooldownsWithEndsAt || {};
+        const cooldowns = Array.isArray(content.cooldowns) ? content.cooldowns : [];
         const ckHistory = content.ckHistory || [];
-        
+
         // Clear any existing countdown intervals
         if (window.cooldownIntervals) {
             window.cooldownIntervals.forEach(interval => clearInterval(interval));
-            window.cooldownIntervals = [];
-        } else {
-            window.cooldownIntervals = [];
         }
-        
+        window.cooldownIntervals = [];
+
         let html = '<div class="cooldowns-member-container">';
-        
+
         // Display active cooldowns
-        const cooldownTypes = Object.keys(cooldowns);
-        if (cooldownTypes.length === 0) {
+        if (cooldowns.length === 0) {
             html += '<div class="empty-state"><span class="empty-text">No active cooldowns</span></div>';
         } else {
             html += '<h3 style="color: #fff; font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem;">Active Cooldowns</h3>';
             html += '<div class="cooldowns-list" id="member-cooldowns-list">';
-            
-            cooldownTypes.forEach(type => {
-                const remaining = cooldowns[type];
-                const cooldownData = cooldownsWithEndsAt[type];
-                const endsAt = cooldownData ? cooldownData.ends_at : null;
-                const timeRemaining = formatTimeRemaining(remaining);
+
+            cooldowns.forEach(cooldown => {
+                const type = cooldown.type || '';
+                const secsRemaining = parseInt(cooldown.seconds_remaining, 10) || 0;
+                const endsAt = cooldown.ends_at || '';
+                const reason = cooldown.reason || '';
+                const timeRemaining = formatTimeRemaining(secsRemaining);
                 const typeLabel = getCooldownTypeLabel(type);
-                const cooldownId = `cooldown-${type}`;
-                
+                const cooldownId = `cooldown-${cooldown.id}`;
+
                 html += `
-                    <div class="cooldown-card" id="${cooldownId}" style="background: #27272a; border: 1px solid #3f3f46; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem;" data-ends-at="${endsAt || ''}">
+                    <div class="cooldown-card" id="${cooldownId}" style="background: #27272a; border: 1px solid #3f3f46; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem;" data-ends-at="${escapeHtml(endsAt)}">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <div class="faction-icon-small" style="background: #f59e0b; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 14px; flex-shrink: 0;">
                                 ${escapeHtml(typeLabel.charAt(0).toUpperCase())}
@@ -2741,6 +2738,7 @@
                                 <div style="color: #fff; font-weight: 600; margin-bottom: 0.25rem;">
                                     ${escapeHtml(typeLabel)} Cooldown
                                 </div>
+                                ${reason ? `<div style="color: #a1a1aa; font-size: 0.8rem; margin-bottom: 0.25rem;">${escapeHtml(reason)}</div>` : ''}
                                 <div style="color: #71717a; font-size: 0.8125rem;">
                                     Time Remaining: <span class="cooldown-timer" style="color: #f59e0b; font-weight: 600;">${timeRemaining}</span>
                                 </div>
@@ -2752,10 +2750,10 @@
                     </div>
                 `;
             });
-            
+
             html += '</div>';
         }
-        
+
         // Display CK History if available
         if (ckHistory.length > 0) {
             html += `
@@ -2763,7 +2761,7 @@
                     <h3 style="color: #fff; font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem;">CK Request History</h3>
                     <div class="cooldowns-list">
             `;
-            
+
             ckHistory.forEach(ck => {
                 const statusColor = ck.status === 'approved' ? '#10b981' : ck.status === 'rejected' ? '#ef4444' : '#f59e0b';
                 html += `
@@ -2781,59 +2779,43 @@
                     </div>
                 `;
             });
-            
+
             html += '</div></div>';
         }
-        
+
         html += '</div>';
         tabContent.innerHTML = html;
-        
+
         // Start live countdown timers for each cooldown
-        if (cooldownTypes.length > 0) {
-            cooldownTypes.forEach(type => {
-                const cooldownId = `cooldown-${type}`;
-                const cooldownCard = document.getElementById(cooldownId);
-                if (cooldownCard) {
-                    const endsAt = cooldownCard.getAttribute('data-ends-at');
-                    if (endsAt) {
-                        const timerElement = cooldownCard.querySelector('.cooldown-timer');
-                        if (timerElement) {
-                            // Update timer every second
-                            const interval = setInterval(() => {
-                                try {
-                                    const endTime = new Date(endsAt);
-                                    const now = new Date();
-                                    const diff = Math.max(0, Math.floor((endTime - now) / 1000)); // seconds
-                                    
-                                    if (diff <= 0) {
-                                        timerElement.textContent = 'Expired';
-                                        timerElement.style.color = '#ef4444';
-                                        clearInterval(interval);
-                                        // Remove from intervals array
-                                        const index = window.cooldownIntervals.indexOf(interval);
-                                        if (index > -1) {
-                                            window.cooldownIntervals.splice(index, 1);
-                                        }
-                                        // Optionally refresh cooldowns after expiration
-                                        setTimeout(() => {
-                                            post('requestTabData', { tab: 'cooldowns', isAdmin: false });
-                                        }, 1000);
-                                    } else {
-                                        timerElement.textContent = formatTimeRemaining(diff);
-                                        timerElement.style.color = '#f59e0b';
-                                    }
-                                } catch (e) {
-                                    // Error updating cooldown timer
-                                    clearInterval(interval);
-                                }
-                            }, 1000);
-                            
-                            window.cooldownIntervals.push(interval);
-                        }
+        cooldowns.forEach(cooldown => {
+            const cooldownCard = document.getElementById(`cooldown-${cooldown.id}`);
+            if (!cooldownCard) return;
+            const endsAt = cooldownCard.getAttribute('data-ends-at');
+            if (!endsAt) return;
+            const timerElement = cooldownCard.querySelector('.cooldown-timer');
+            if (!timerElement) return;
+
+            const interval = setInterval(() => {
+                try {
+                    const diff = Math.max(0, Math.floor((new Date(endsAt) - new Date()) / 1000));
+                    if (diff <= 0) {
+                        timerElement.textContent = 'Expired';
+                        timerElement.style.color = '#ef4444';
+                        clearInterval(interval);
+                        const idx = window.cooldownIntervals.indexOf(interval);
+                        if (idx > -1) window.cooldownIntervals.splice(idx, 1);
+                        setTimeout(() => post('requestTabData', { tab: 'cooldowns', isAdmin: false }), 1000);
+                    } else {
+                        timerElement.textContent = formatTimeRemaining(diff);
+                        timerElement.style.color = '#f59e0b';
                     }
+                } catch (e) {
+                    clearInterval(interval);
                 }
-            });
-        }
+            }, 1000);
+
+            window.cooldownIntervals.push(interval);
+        });
     }
     
     function getCooldownTypeLabel(type) {
