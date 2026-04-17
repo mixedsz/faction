@@ -43,10 +43,11 @@ RegisterNetEvent('faction:receiveFactionData', function(data)
             action  = 'updateTab',
             tab     = 'reputation',
             content = {
-                reputation      = faction.reputation or 0,
-                rank            = rankLabel,
-                activeWars      = (faction.active_wars or 0) .. ' / ' .. (faction.max_wars or 2),
-                gunDropEligible = faction.gun_drop_eligible and 'Yes' or 'No'
+                reputation          = faction.reputation or 0,
+                rank                = rankLabel,
+                activeWars          = (faction.active_wars or 0) .. ' / ' .. (faction.max_wars or 2),
+                gunDropEligible     = faction.gun_drop_eligible and 'Yes' or 'No',
+                gunDropCooldownSecs = faction.gun_drop_cooldown_secs or 0
             }
         })
     end
@@ -324,6 +325,32 @@ end)
 RegisterNUICallback('adminSelectTerritoryFaction', function(data, cb)
     cb('ok')
     local factionId = data.factionId
+    if factionId then
+        TriggerServerEvent('faction:adminGetFactionTerritory', factionId)
+    end
+end)
+
+RegisterNUICallback('adminSubmitTerritory', function(data, cb)
+    cb('ok')
+    local factionId = data.factionId
+    local territoryData = data.territoryData
+    if factionId and territoryData then
+        TriggerServerEvent('faction:adminAssignTerritory', factionId, territoryData)
+    end
+end)
+
+RegisterNUICallback('adminDeleteTerritory', function(data, cb)
+    cb('ok')
+    local territoryId = data.territoryId
+    local factionId = data.factionId
+    if territoryId then
+        TriggerServerEvent('faction:adminDeleteTerritory', territoryId, factionId)
+    end
+end)
+
+RegisterNUICallback('adminAddTerritory', function(data, cb)
+    cb('ok')
+    local factionId = data.factionId
     local factionLabel = data.factionLabel
     if factionId then
         SendNUIMessage({
@@ -335,21 +362,6 @@ RegisterNUICallback('adminSelectTerritoryFaction', function(data, cb)
                 factionLabel = factionLabel
             }
         })
-    end
-end)
-
-RegisterNUICallback('adminSubmitTerritory', function(data, cb)
-    cb('ok')
-    local factionId = data.factionId
-    local territoryData = data.territoryData
-    if factionId and territoryData then
-        TriggerServerEvent('faction:adminAssignTerritory', factionId, territoryData)
-        lib.notify({
-            type = 'success',
-            description = 'Territory assigned successfully!'
-        })
-        -- Reset to faction selection
-        TriggerServerEvent('faction:adminGetFactionsForTerritory')
     end
 end)
 

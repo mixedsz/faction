@@ -70,8 +70,17 @@ function SendFactionDataToPlayer(source)
         reputation = row.reputation,
         active_wars = row.active_wars,
         max_wars   = row.max_wars,
-        gun_drop_eligible = row.gun_drop_eligible == 1
+        gun_drop_eligible = row.gun_drop_eligible == 1 or row.gun_drop_eligible == true
     }
+
+    -- Include gun drop cooldown so clients can show a countdown
+    local cdResult = MySQL.query.await([[
+        SELECT GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS secs
+        FROM faction_cooldowns
+        WHERE faction_id = ? AND type = 'gun_drop' AND expires_at > NOW()
+        LIMIT 1
+    ]], { row.faction_id })
+    factionData.gun_drop_cooldown_secs = cdResult and #cdResult > 0 and cdResult[1].secs or 0
 
     TriggerClientEvent('faction:receiveFactionData', source, {
         faction = factionData,

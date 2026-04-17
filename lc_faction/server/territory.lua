@@ -209,7 +209,12 @@ RegisterNetEvent('faction:adminGetFactionsForTerritory', function()
     local source = source
     if not IsAdminPlayer(source) then return end
 
-    local factions = MySQL.query.await('SELECT id, name, label FROM faction_factions ORDER BY label')
+    local factions = MySQL.query.await([[
+        SELECT f.id, f.name, f.label,
+               (SELECT COUNT(*) FROM faction_territory WHERE faction_id = f.id) AS territory_count
+        FROM faction_factions f
+        ORDER BY f.label
+    ]])
     TriggerClientEvent('faction:adminReceiveFactionsForTerritory', source, factions or {})
 end)
 
@@ -235,5 +240,50 @@ RegisterNetEvent('faction:adminAssignTerritory', function(factionId, data)
 
     InvalidateTerritoryCache()
     lib.notify(source, { type = 'success', description = 'Territory assigned.' })
-    TriggerServerEvent('faction:adminGetFactionsForTerritory')
+
+    -- Refresh manage view for this faction
+    local faction = GetFactionById(fid)
+    local territories = MySQL.query.await('SELECT id, faction_id, name, type, x, y, z, radius, stash_id FROM faction_territory WHERE faction_id = ? ORDER BY name', { fid })
+    TriggerClientEvent('faction:adminReceiveFactionTerritory', source, fid, faction and faction.label or 'Unknown', territories or {})
+end)
+
+-- Get all territories for a specific faction (admin management view)
+RegisterNetEvent('faction:adminGetFactionTerritory', function(factionId)
+    local source = source
+    if not IsAdminPlayer(source) then return end
+
+    local fid = tonumber(factionId)
+    if not fid then return end
+
+    local faction = GetFactionById(fid)
+    local territories = MySQL.query.await([[
+        SELECT id, faction_id, name, type, x, y, z, radius, stash_id
+        FROM faction_territory
+        WHERE faction_id = ?
+        ORDER BY name
+    ]], { fid })
+
+    TriggerClientEvent('faction:adminReceiveFactionTerritory', source, fid, faction and faction.label or 'Unknown', territories or {})
+end)
+
+-- Delete a territory (admin)
+RegisterNetEvent('faction:adminDeleteTerritory', function(territoryId, factionId)
+    local source = source
+    if not IsAdminPlayer(source) then return end
+
+    local tid = tonumber(territoryId)
+    if not tid then return end
+
+    MySQL.update('DELETE FROM faction_territory WHERE id = ?', { tid })
+    InvalidateTerritoryCache()
+
+    lib.notify(source, { type = 'success', description = 'Territory deleted.' })
+
+    -- Refresh the manage view for the faction
+    local fid = tonumber(factionId)
+    if fid then
+        local faction = GetFactionById(fid)
+        local territories = MySQL.query.await('SELECT id, faction_id, name, type, x, y, z, radius, stash_id FROM faction_territory WHERE faction_id = ? ORDER BY name', { fid })
+        TriggerClientEvent('faction:adminReceiveFactionTerritory', source, fid, faction and faction.label or 'Unknown', territories or {})
+    end
 end)

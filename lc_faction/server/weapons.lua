@@ -127,6 +127,49 @@ end)
 -- GUN DROP SYSTEM
 -- ============================================================
 
+-- Give faction weapons to a player. Tries ox_inventory first, then ESX addWeapon.
+-- Returns the number of weapons given (based on actual API success).
+local function GiveWeaponsViaESX(xPlayer, weapons)
+    local src   = xPlayer.source
+    local ident = xPlayer.identifier
+    local count = 0
+
+    print(string.format('[faction:gunDrop] Giving %d weapon(s) to %s (src %d)', #weapons, ident, src or -1))
+
+    for _, w in ipairs(weapons) do
+        local raw = tostring(w.weapon_hash or ''):gsub('%s+', '')
+        print(string.format('[faction:gunDrop]  -> weapon "%s" | hash/spawn: "%s"', tostring(w.weapon_name), raw))
+
+        if raw == '' then
+            print('[faction:gunDrop]     SKIP: empty hash')
+        else
+            local itemName = raw:lower()   -- ox_inventory uses lowercase item names
+            local weaponNameUpper = raw:upper()
+
+            -- Try ox_inventory (present on this server)
+            local hasOxInv = exports.ox_inventory ~= nil
+            if hasOxInv then
+                local ok, err = pcall(function()
+                    local success = exports.ox_inventory:AddItem(src, itemName, 1)
+                    print(string.format('[faction:gunDrop]     ox_inventory:AddItem("%s") -> %s', itemName, tostring(success)))
+                    if success then count = count + 1 end
+                end)
+                if not ok then
+                    print(string.format('[faction:gunDrop]     ox_inventory ERROR: %s', tostring(err)))
+                end
+            else
+                -- Fallback: ESX addWeapon
+                local ok, err = pcall(function() xPlayer.addWeapon(weaponNameUpper, 250) end)
+                print(string.format('[faction:gunDrop]     xPlayer.addWeapon("%s") pcall ok=%s err=%s', weaponNameUpper, tostring(ok), tostring(err)))
+                if ok then count = count + 1 end
+            end
+        end
+    end
+
+    print(string.format('[faction:gunDrop] Done — %d weapon(s) given to %s', count, ident))
+    return count
+end
+
 RegisterNetEvent('faction:requestGunDrop', function()
     local source = source
     local xPlayer = ESX.GetPlayerFromId(source)
@@ -151,7 +194,7 @@ RegisterNetEvent('faction:requestGunDrop', function()
 
     -- Eligibility flag check
     local faction = GetFactionById(row.faction_id)
-    if not faction or faction.gun_drop_eligible ~= 1 then
+    if not faction or (faction.gun_drop_eligible ~= 1 and faction.gun_drop_eligible ~= true) then
         lib.notify(source, { type = 'error', description = 'Your faction is not marked as gun drop eligible.' })
         return
     end
@@ -200,31 +243,42 @@ RegisterNetEvent('faction:requestGunDrop', function()
         ON DUPLICATE KEY UPDATE expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND), reason = 'Gun drop collected'
     ]], { row.faction_id, Config.GunDrops.cooldown, Config.GunDrops.cooldown })
 
-    -- Deliver weapons to ALL currently online faction members
+    -- Deliver weapons to ALL currently online faction members via ESX inventory
     local factionMembers = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { row.faction_id })
     local onlineMap = {}
     for _, pid in ipairs(GetPlayers()) do
         local src = tonumber(pid)
         if src then
             local p = ESX.GetPlayerFromId(src)
-            if p and p.identifier then onlineMap[p.identifier] = src end
+            if p and p.identifier then onlineMap[p.identifier] = { src = src, player = p } end
         end
     end
 
     local recipients = {}
     if factionMembers then
         for _, m in ipairs(factionMembers) do
-            local memberSrc = onlineMap[m.identifier]
-            if memberSrc then
-                TriggerClientEvent('faction:receiveGunDrop', memberSrc, weapons)
-                table.insert(recipients, memberSrc)
+            local info = onlineMap[m.identifier]
+            if info then
+                local count = GiveWeaponsViaESX(info.player, weapons)
+                if count > 0 then
+                    lib.notify(info.src, {
+                        type = 'success', title = 'Gun Drop',
+                        description = string.format('%d weapon(s) added to your inventory.', count),
+                        duration = 8000
+                    })
+                    table.insert(recipients, info.src)
+                end
             end
         end
     end
 
-    -- Fallback: deliver to requester if no members found online (shouldn't happen)
+    -- Fallback: deliver to requester if nobody received (shouldn't happen)
     if #recipients == 0 then
-        TriggerClientEvent('faction:receiveGunDrop', source, weapons)
+        local count = GiveWeaponsViaESX(xPlayer, weapons)
+        if count > 0 then
+            lib.notify(source, { type = 'success', title = 'Gun Drop',
+                description = string.format('%d weapon(s) added to your inventory.', count), duration = 8000 })
+        end
         table.insert(recipients, source)
     end
 
@@ -283,3 +337,97 @@ CreateThread(function()
         ::continue::
     end
 end)
+
+-- ============================================================
+-- ADMIN: /factiondrop [faction_name]
+-- Forces an immediate gun drop for a faction and resets the timer.
+-- ============================================================
+RegisterCommand('factiondrop', function(source, args)
+    if source == 0 then return end
+    if not IsAdminPlayer(source) then
+        lib.notify(source, { type = 'error', description = 'No permission.' })
+        return
+    end
+
+    local input = args[1] and tostring(args[1]):lower() or nil
+    if not input then
+        lib.notify(source, { type = 'error', description = 'Usage: /factiondrop [faction_name]' })
+        return
+    end
+
+    local rows = MySQL.query.await('SELECT * FROM faction_factions WHERE LOWER(name) = ? OR LOWER(label) = ? LIMIT 1', { input, input })
+    local faction = rows and rows[1] or nil
+    if not faction then
+        lib.notify(source, { type = 'error', description = 'Faction "' .. input .. '" not found. Use the faction name or label shown in /factionadmin.' })
+        return
+    end
+
+    local fid = faction.id
+
+    local weapons = MySQL.query.await([[
+        SELECT weapon_name, serial_number, weapon_hash
+        FROM faction_weapons
+        WHERE faction_id = ? AND weapon_hash IS NOT NULL AND weapon_hash != ''
+        ORDER BY weapon_name
+    ]], { fid })
+
+    if not weapons or #weapons == 0 then
+        lib.notify(source, { type = 'error', description = 'No weapons with hashes registered for ' .. faction.label .. '.' })
+        return
+    end
+
+    MySQL.update('DELETE FROM faction_cooldowns WHERE faction_id = ? AND type = ?', { fid, 'gun_drop' })
+
+    local factionMembers = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { fid })
+    local onlineMap = {}
+    for _, pid in ipairs(GetPlayers()) do
+        local src = tonumber(pid)
+        if src then
+            local p = ESX.GetPlayerFromId(src)
+            if p and p.identifier then onlineMap[p.identifier] = { src = src, player = p } end
+        end
+    end
+
+    local recipients = {}
+    if factionMembers then
+        for _, m in ipairs(factionMembers) do
+            local info = onlineMap[m.identifier]
+            if info then
+                local count = GiveWeaponsViaESX(info.player, weapons)
+                if count > 0 then
+                    lib.notify(info.src, {
+                        type = 'success', title = 'Gun Drop (Admin)',
+                        description = string.format('%d weapon(s) added to your inventory.', count),
+                        duration = 8000
+                    })
+                    table.insert(recipients, info.src)
+                end
+            end
+        end
+    end
+
+    MySQL.query([[
+        INSERT INTO faction_cooldowns (faction_id, type, expires_at, reason)
+        VALUES (?, 'gun_drop', DATE_ADD(NOW(), INTERVAL ? SECOND), 'Admin forced gun drop')
+        ON DUPLICATE KEY UPDATE expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND), reason = 'Admin forced gun drop'
+    ]], { fid, Config.GunDrops.cooldown, Config.GunDrops.cooldown })
+
+    NotifyFactionMembers(fid, 'faction:receiveNotification', {
+        type        = 'success',
+        title       = 'Gun Drop (Admin)',
+        description = string.format('Admin triggered a gun drop — %d online member(s) armed up.', #recipients)
+    })
+
+    local xPlayer = ESX.GetPlayerFromId(source)
+    local adminName = xPlayer and xPlayer.getName() or 'Admin'
+    lib.notify(source, { type = 'success', description = string.format(
+        'Gun drop forced for %s — %d member(s) online received weapons. Timer reset.', faction.label, #recipients) })
+
+    if Config.Webhooks.enabled and Config.Webhooks.weaponLogging ~= '' then
+        PerformHttpRequest(Config.Webhooks.weaponLogging, function() end, 'POST',
+            json.encode({ content = string.format(
+                '**Admin Gun Drop** | Faction: %s | Admin: %s | Recipients: %d | Weapons: %d',
+                faction.label, adminName, #recipients, #weapons) }),
+            { ['Content-Type'] = 'application/json' })
+    end
+end, false)
