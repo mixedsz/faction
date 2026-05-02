@@ -3,9 +3,9 @@
 local PlayerData = {}
 currentFaction = nil -- Make it global so ui.lua can access it
 local awaitingReputationRefresh = false
-local nuiOpen = false -- tracks phone UI open state for control disabling
+nuiOpen = false -- global so weapons.lua and other files can read it
 
--- Per-frame thread: lock look and attack inputs while phone UI is open
+-- Per-frame thread: lock look, attack and chat inputs while phone UI is open
 CreateThread(function()
     while true do
         if nuiOpen then
@@ -18,12 +18,32 @@ CreateThread(function()
             DisableControlAction(0, 264, true) -- MeleeAttackHeavy
             DisableControlAction(0, 140, true) -- MeleeAttack1
             DisableControlAction(0, 141, true) -- MeleeAttack2
+            DisableControlAction(0, 245, true) -- INPUT_MULTIPLAYER_CHAT (T key / open chat)
             Wait(0)
         else
             Wait(300)
         end
     end
 end)
+
+-- Show a notification: phone toast when phone is open, lib.notify otherwise
+function FactionNotify(type, title, description, duration)
+    if nuiOpen then
+        SendNUIMessage({
+            action      = 'phoneNotify',
+            notifType   = type or 'info',
+            title       = title or '',
+            description = description or '',
+        })
+    else
+        lib.notify({
+            type        = type or 'info',
+            title       = title ~= '' and title or nil,
+            description = description or '',
+            duration    = duration or 5000
+        })
+    end
+end
 
 -- Import functions from ui.lua (deprecated - now handled in NUI)
 function OpenFactionReportTab()
@@ -243,14 +263,11 @@ RegisterNUICallback('submitCKRequest', function(data, cb)
     local reason = data.reason
     if targetIdentifier and targetName and serverId and reason then
         TriggerServerEvent('faction:requestCK', targetIdentifier, targetName .. ' (ID: ' .. serverId .. ')', reason)
-        -- Show success message and reset tab
+        FactionNotify('success', 'CK Request', 'Request submitted for admin review.')
         SendNUIMessage({
             action = 'updateTab',
             tab = 'ck',
-            content = {
-                step = 'select_faction',
-                factions = {}
-            }
+            content = { step = 'select_faction', factions = {} }
         })
         TriggerServerEvent('faction:getFactionListForCK')
     end
@@ -306,13 +323,11 @@ RegisterNUICallback('submitReport', function(data, cb)
     local targetFactionId = data.targetFactionId
     if reportType and details then
         TriggerServerEvent('faction:submitReport', reportType, details, targetFactionId)
-        -- Reset report tab
+        FactionNotify('success', 'Report', 'Report submitted successfully.')
         SendNUIMessage({
             action = 'updateTab',
             tab = 'report',
-            content = {
-                step = 'select_report_type'
-            }
+            content = { step = 'select_report_type' }
         })
     end
 end)
