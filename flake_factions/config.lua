@@ -72,6 +72,12 @@ Config.Database = {
     tablePrefix = 'faction_' -- Prefix for database tables
 }
 
+-- Production / Demo Mode
+-- When true, ALL tabs in the faction UI are populated with realistic fake data.
+-- Use this to showcase the script to potential buyers without needing a live server.
+-- Set to false on your live server.
+Config.ProductionMode = false
+
 -- Admin: ESX groups that can use admin commands and panel
 Config.AdminGroups = { 'management', 'lead' }
 

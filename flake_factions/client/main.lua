@@ -99,18 +99,37 @@ end)
 
 -- Open the Faction Member NUI panel (for regular players)
 function OpenFactionPanel()
+    -- Block when dead
+    if IsEntityDead(PlayerPedId()) then
+        lib.notify({ type = 'error', description = 'You cannot use this while dead.' })
+        return
+    end
+
     local usePhoneUI = Config.UI.usePhoneUI == true
+
+    -- Production / demo mode: inject fake data, no server calls needed
+    if Config.ProductionMode then
+        SetNuiFocus(true, true)
+        SetNuiFocusKeepInput(true)
+        local demo = GetDemoFaction()
+        SendNUIMessage({ action = 'open', factions = { demo }, isAdmin = false, usePhoneUI = usePhoneUI })
+        if usePhoneUI then
+            SendNUIMessage({ action = 'updateFactionHUD', show = true, factionLabel = demo.label, rank = 'Boss' })
+        end
+        return
+    end
+
     -- Only show player's own faction, not all factions
     if not currentFaction or not currentFaction.faction then
         SetNuiFocus(true, true)
+        SetNuiFocusKeepInput(true)
         SendNUIMessage({ action = 'open', factions = {}, isAdmin = false, usePhoneUI = usePhoneUI })
-        -- Request faction data to check if player is in a faction
         TriggerServerEvent('faction:getFactionData')
         return
     end
 
-    -- Player is in a faction, show it in NUI
     SetNuiFocus(true, true)
+    SetNuiFocusKeepInput(true)
     local factionList = {
         {
             id = currentFaction.faction.id,
@@ -152,6 +171,7 @@ end)
 
 -- NUI callbacks
 RegisterNUICallback('close', function(_, cb)
+    SetNuiFocusKeepInput(false)
     SetNuiFocus(false, false)
     cb('ok')
 end)
@@ -396,6 +416,12 @@ RegisterNUICallback('requestTabData', function(data, cb)
     cb('ok')
     local tab = data and type(data.tab) == 'string' and data.tab:match('^%a[%a_]*$') and data.tab
     if not tab or not ALLOWED_TABS[tab] then return end
+
+    -- Production mode: serve fake demo data for every tab, no server calls
+    if Config.ProductionMode then
+        SendDemoTabData(tab)
+        return
+    end
 
     local isAdmin = data.isAdmin == true
 

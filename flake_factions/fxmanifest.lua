@@ -1,7 +1,7 @@
 fx_version 'cerulean'
 game 'gta5'
 
-author 'Your Name'
+author 'Flake Development'
 description 'Advanced Faction Management System for ESX'
 version '1.0.0'
 
@@ -31,7 +31,8 @@ client_scripts {
     'client/ui.lua',
     'client/admin.lua',
     'client/territory.lua',
-    'client/weapons.lua'
+    'client/weapons.lua',
+    'client/demo.lua'
 }
 
 files {
