@@ -1623,6 +1623,7 @@ body {
 }
 
 .phone-screen {
+    position: relative; /* needed so absolute-positioned toast stays inside the phone */
     flex: 1;
     overflow: hidden;
     display: flex;
@@ -1650,13 +1651,13 @@ body {
 /* ── Phone toast notifications ── */
 #phone-toast-container {
     position: absolute;
-    top: 8px;
-    left: 8px;
-    right: 8px;
-    z-index: 9999;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    z-index: 100; /* contained within phone-screen stacking context */
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
     pointer-events: none;
 }
 
@@ -1723,12 +1724,46 @@ body {
     to   { opacity: 0; transform: translateY(-8px)  scale(0.97); }
 }
 
-/* ── Phone mode compact scaling ── */
-/* Scale down all tab content so it fits comfortably in the phone screen */
-#faction-panel.phone-mode #tab-content {
-    zoom: 0.8;
-    width: 125%;
-    margin-left: 0;
+/* ── Phone mode compact layout ── */
+/* Kill horizontal scroll: panel-content overflow-y:auto forces overflow-x:auto,
+   so we must explicitly hide it in phone mode */
+#faction-panel.phone-mode .panel-inner {
+    overflow-x: hidden !important;
+}
+
+#faction-panel.phone-mode .panel-content {
+    padding: 0 0.625rem 1rem !important;
+    overflow-x: hidden !important;
+}
+
+/* Compact content elements */
+#faction-panel.phone-mode .info-card {
+    padding: 0.75rem !important;
+}
+
+#faction-panel.phone-mode .info-card h3 {
+    font-size: 0.875rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+#faction-panel.phone-mode .info-row {
+    padding: 0.35rem 0 !important;
+}
+
+#faction-panel.phone-mode .info-label,
+#faction-panel.phone-mode .info-value {
+    font-size: 0.8rem !important;
+}
+
+#faction-panel.phone-mode .list-item {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8rem !important;
+}
+
+/* Let war reason text wrap naturally instead of using JS truncation */
+#faction-panel.phone-mode [data-conflicts-section] {
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
 }
 
 #faction-panel.phone-mode .panel-header {

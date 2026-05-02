@@ -3058,7 +3058,7 @@
                                     <div style="width: 8px; height: 8px; background: #ef4444; border-radius: 50%; flex-shrink: 0;"></div>
                                     <div style="flex: 1;">
                                         <div style="color: #fff; font-weight: 600; font-size: 0.875rem;">War with ${escapeHtml(otherFaction)}</div>
-                                        ${conflict.reason ? `<div style="color: #71717a; font-size: 0.75rem; margin-top: 0.25rem;">${escapeHtml(conflict.reason.length > 60 ? conflict.reason.substring(0, 60) + '...' : conflict.reason)}</div>` : ''}
+                                        ${conflict.reason ? `<div style="color: #71717a; font-size: 0.75rem; margin-top: 0.25rem; word-break: break-word;">${escapeHtml(conflict.reason)}</div>` : ''}
                                     </div>
                                 </div>
                             `;
