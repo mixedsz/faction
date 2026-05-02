@@ -241,6 +241,13 @@ RegisterNetEvent('faction:addWarning', function(memberId, reason)
     lib.notify(source, { type = 'success', description = 'Warning added.' })
 end)
 
+-- Phone UI: register the faction phone as a useable item (ESX)
+if Config.UI.usePhoneUI then
+    ESX.RegisterUsableItem(Config.UI.phoneItem, function(source)
+        TriggerClientEvent('faction:openPhoneUI', source)
+    end)
+end
+
 -- Get faction rules (member side)
 RegisterNetEvent('faction:getRules', function()
     local source = source

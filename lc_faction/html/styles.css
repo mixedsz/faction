@@ -1491,3 +1491,148 @@ body {
     margin: 0;
     word-wrap: break-word;
 }
+
+/* ============================================================
+   PHONE UI MODE
+   Displayed when Config.UI.usePhoneUI = true
+   ============================================================ */
+
+#phone-wrapper {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 999;
+    pointer-events: none;
+}
+
+#phone-wrapper.active {
+    pointer-events: all;
+}
+
+.phone-device {
+    width: 390px;
+    height: 844px;
+    background: linear-gradient(160deg, #1c1c1e 0%, #0d0d0f 100%);
+    border-radius: 52px;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.13),
+        0 0 0 3px #0a0a0c,
+        0 50px 100px rgba(0, 0, 0, 0.85),
+        inset 0 1px 0 rgba(255, 255, 255, 0.09);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Volume buttons (decorative, left side) */
+.phone-device::before {
+    content: '';
+    position: absolute;
+    left: -3px;
+    top: 130px;
+    width: 3px;
+    height: 30px;
+    background: #2c2c2e;
+    border-radius: 2px 0 0 2px;
+    box-shadow: 0 46px 0 #2c2c2e, 0 92px 0 #2c2c2e;
+}
+
+/* Power button (decorative, right side) */
+.phone-device::after {
+    content: '';
+    position: absolute;
+    right: -3px;
+    top: 170px;
+    width: 3px;
+    height: 72px;
+    background: #2c2c2e;
+    border-radius: 0 2px 2px 0;
+}
+
+.phone-top-chrome {
+    flex-shrink: 0;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 14px;
+}
+
+.phone-dynamic-island {
+    width: 120px;
+    height: 34px;
+    background: #000;
+    border-radius: 20px;
+}
+
+.phone-status-bar {
+    flex-shrink: 0;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 22px;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.2px;
+}
+
+.phone-status-icons {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #fff;
+}
+
+.phone-screen {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #18181b;
+    margin: 0 4px;
+    border-radius: 4px 4px 0 0;
+}
+
+.phone-bottom-chrome {
+    flex-shrink: 0;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.phone-home-pill {
+    width: 134px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.28);
+    border-radius: 3px;
+}
+
+/* Panel overrides when rendered inside the phone screen */
+#faction-panel.phone-mode {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    z-index: auto !important;
+    pointer-events: all !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: stretch !important;
+}
+
+#faction-panel.phone-mode .panel-inner {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+}
