@@ -199,6 +199,21 @@ RegisterNetEvent('faction:claimTerritory', function(data)
 
     InvalidateTerritoryCache()
     lib.notify(source, { type = 'success', description = 'Territory "' .. name .. '" claimed!' })
+
+    -- Notify faction members
+    NotifyFactionMembers(row.faction_id, 'faction:receiveNotification', {
+        type = 'success', title = 'Territory Claimed',
+        description = xPlayer.getName() .. ' claimed territory "' .. name .. '"! +' .. Config.Reputation.territoryClaim .. ' rep.'
+    })
+
+    -- Webhook
+    if Config.Webhooks.enabled and Config.Webhooks.weaponLogging ~= '' then
+        PerformHttpRequest(Config.Webhooks.weaponLogging, function() end, 'POST',
+            json.encode({ content = string.format(
+                '**Territory Claimed** | Faction: %s | Territory: %s | By: %s | +%d Rep',
+                row.faction_label, name, xPlayer.getName(), Config.Reputation.territoryClaim) }),
+            { ['Content-Type'] = 'application/json' })
+    end
 end)
 
 -- ============================================================
@@ -274,8 +289,31 @@ RegisterNetEvent('faction:adminDeleteTerritory', function(territoryId, factionId
     local tid = tonumber(territoryId)
     if not tid then return end
 
+    -- Fetch territory info before deleting for reputation / notification
+    local terrInfo = MySQL.query.await('SELECT t.name, t.faction_id, f.label AS faction_label FROM faction_territory t JOIN faction_factions f ON f.id = t.faction_id WHERE t.id = ? LIMIT 1', { tid })
+    local terr = terrInfo and terrInfo[1] or nil
+
     MySQL.update('DELETE FROM faction_territory WHERE id = ?', { tid })
     InvalidateTerritoryCache()
+
+    -- Apply reputation loss for losing territory
+    if terr and terr.faction_id then
+        local repLoss = math.abs(Config.Reputation.territoryLost or 15)
+        MySQL.update('UPDATE faction_factions SET reputation = GREATEST(0, reputation - ?) WHERE id = ?', { repLoss, terr.faction_id })
+
+        NotifyFactionMembers(terr.faction_id, 'faction:receiveNotification', {
+            type = 'error', title = 'Territory Lost',
+            description = 'Territory "' .. (terr.name or 'Unknown') .. '" was removed. -' .. repLoss .. ' rep.'
+        })
+
+        if Config.Webhooks.enabled and Config.Webhooks.weaponLogging ~= '' then
+            PerformHttpRequest(Config.Webhooks.weaponLogging, function() end, 'POST',
+                json.encode({ content = string.format(
+                    '**Territory Removed** | Faction: %s | Territory: %s | -%d Rep',
+                    terr.faction_label, terr.name or 'Unknown', repLoss) }),
+                { ['Content-Type'] = 'application/json' })
+        end
+    end
 
     lib.notify(source, { type = 'success', description = 'Territory deleted.' })
 

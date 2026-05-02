@@ -23,7 +23,7 @@ RegisterNetEvent('faction:getFactionListForCK', function()
     TriggerClientEvent('faction:receiveFactionListForCK', source, factions or {})
 end)
 
--- Get online players from a specific faction for CK selection
+-- Get all players from a specific faction for CK selection (online and offline)
 RegisterNetEvent('faction:getFactionPlayersForCK', function(factionId)
     local source = source
     local xPlayer = ESX.GetPlayerFromId(source)
@@ -35,30 +35,33 @@ RegisterNetEvent('faction:getFactionPlayersForCK', function(factionId)
         return
     end
 
-    -- Build a fast lookup of online players by identifier
-    local onlineMap = {}
-    for _, pid in ipairs(GetPlayers()) do
-        local src = tonumber(pid)
-        if src then
-            local p = ESX.GetPlayerFromId(src)
-            if p and p.identifier then
-                onlineMap[p.identifier] = { src = src, name = p.getName() }
-            end
-        end
-    end
+    local members = MySQL.query.await([[
+        SELECT identifier, player_name, rank, last_active
+        FROM faction_members
+        WHERE faction_id = ?
+        ORDER BY player_name
+    ]], { tonumber(factionId) })
 
-    local members = MySQL.query.await('SELECT identifier, player_name FROM faction_members WHERE faction_id = ?', { tonumber(factionId) })
     local allPlayers = {}
-
     for _, m in ipairs(members or {}) do
-        local info = onlineMap[m.identifier]
+        -- Use ESX.GetPlayerFromIdentifier for reliable online check
+        local p = ESX.GetPlayerFromIdentifier(m.identifier)
+        local isOnline = p ~= nil
         table.insert(allPlayers, {
             identifier = m.identifier,
-            name       = (info and info.name) or m.player_name or m.identifier,
-            serverId   = info and info.src or 0,
-            online     = info ~= nil
+            name       = (p and p.getName()) or m.player_name or m.identifier,
+            serverId   = p and p.source or 0,
+            online     = isOnline,
+            rank       = m.rank,
+            last_active = m.last_active
         })
     end
+
+    -- Sort: online members first
+    table.sort(allPlayers, function(a, b)
+        if a.online ~= b.online then return a.online end
+        return (a.name or '') < (b.name or '')
+    end)
 
     TriggerClientEvent('faction:receiveFactionPlayersForCK', source, allPlayers, faction.label)
 end)
@@ -113,4 +116,13 @@ RegisterNetEvent('faction:requestCK', function(targetIdentifier, targetName, rea
     ]], { row.faction_id, Config.Conflict.ckCooldown, Config.Conflict.ckCooldown })
 
     lib.notify(source, { type = 'success', description = 'CK request submitted for admin review.' })
+
+    -- Webhook notification
+    if Config.Webhooks.enabled and Config.Webhooks.reportSubmitted ~= '' then
+        PerformHttpRequest(Config.Webhooks.reportSubmitted, function() end, 'POST',
+            json.encode({ content = string.format(
+                '**CK Request Submitted** | Faction: %s | By: %s | Target: %s | Reason: %s',
+                row.faction_label, xPlayer.getName(), safeName, safeReason:sub(1, 200)) }),
+            { ['Content-Type'] = 'application/json' })
+    end
 end)

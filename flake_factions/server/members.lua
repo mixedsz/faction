@@ -28,6 +28,15 @@ RegisterNetEvent('faction:getMembers', function()
             END, player_name
     ]], { row.faction_id })
 
+    -- Attach live online status using ESX lookup
+    for _, m in ipairs(members or {}) do
+        local p = ESX.GetPlayerFromIdentifier(m.identifier)
+        m.online    = p ~= nil
+        m.server_id = p and p.source or 0
+        -- Keep player_name fresh if online
+        if p then m.player_name = p.getName() end
+    end
+
     TriggerClientEvent('faction:receiveMembers', source, members or {})
 end)
 
