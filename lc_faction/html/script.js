@@ -2975,11 +2975,23 @@
             close();
         }
         
+        if (data.action === 'updateFactionHUD') {
+            const hud = document.getElementById('faction-hud');
+            if (!hud) return;
+            if (data.show) {
+                document.getElementById('faction-hud-label').textContent = data.factionLabel || '';
+                document.getElementById('faction-hud-rank').textContent = data.rank || '';
+                hud.classList.remove('hidden');
+            } else {
+                hud.classList.add('hidden');
+            }
+        }
+
         if (data.action === 'hide') {
             // Hide NUI but keep it in memory
             panel.classList.add('hidden');
         }
-        
+
         if (data.action === 'show') {
             // Show NUI again
             panel.classList.remove('hidden');
