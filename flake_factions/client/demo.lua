@@ -108,25 +108,16 @@ local DEMO_TERRITORY = {
     }
 }
 
-local DEMO_COOLDOWNS = {
-    cooldowns = {
-        {
-            id                = 1,
-            type              = 'war',
-            seconds_remaining = 5400,
-            ends_at           = '2026-04-30 02:30:00',
-            reason            = 'Post-conflict cooldown — dispute with Ballas'
-        }
-    },
-    ckHistory = {
-        {
-            target_name     = 'T-Bone Mendez',
-            target_faction  = 'Ballas',
-            submitted_by    = 'Antoine Brooks',
-            status          = 'approved',
-            reason          = 'Confirmed CK — hostile engagement on 27/04',
-            created_at      = '2026-04-27 19:00:00'
-        }
+local DEMO_COOLDOWN_SECS = 5400 -- 90 min; ends_at computed fresh each call so countdown never loops
+
+local DEMO_COOLDOWNS_CKHIST = {
+    {
+        target_name     = 'T-Bone Mendez',
+        target_faction  = 'Ballas',
+        submitted_by    = 'Antoine Brooks',
+        status          = 'approved',
+        reason          = 'Confirmed CK — hostile engagement on 27/04',
+        created_at      = '2026-04-27 19:00:00'
     }
 }
 
@@ -223,10 +214,23 @@ function SendDemoTabData(tab)
         })
 
     elseif tab == 'cooldowns' then
+        -- Compute ends_at fresh each time so the countdown always has time remaining
+        local futureEndsAt = os.date('%Y-%m-%d %H:%M:%S', os.time() + DEMO_COOLDOWN_SECS)
         SendNUIMessage({
             action  = 'updateTab',
             tab     = 'cooldowns',
-            content = DEMO_COOLDOWNS
+            content = {
+                cooldowns = {
+                    {
+                        id                = 1,
+                        type              = 'war',
+                        seconds_remaining = DEMO_COOLDOWN_SECS,
+                        ends_at           = futureEndsAt,
+                        reason            = 'Post-conflict cooldown — dispute with Ballas'
+                    }
+                },
+                ckHistory = DEMO_COOLDOWNS_CKHIST
+            }
         })
 
     elseif tab == 'warnings' then
