@@ -169,7 +169,18 @@ RegisterNetEvent('faction:logWeaponUsage', function(weaponHash, coords, isAlterc
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ]], { factionId, xPlayer.identifier, weaponItemName or hashStr, isAltercation and 1 or 0, violationToLog and 1 or 0, cx, cy, cz })
 
-    -- Webhook for illegal weapon in altercation
+    -- Webhook: general weapon shot log (fires for every shot during an altercation)
+    if isAltercation and Config.Webhooks.enabled and Config.Webhooks.weaponLogging ~= '' then
+        PerformHttpRequest(Config.Webhooks.weaponLogging, function() end, 'POST',
+            json.encode({ content = string.format(
+                '**Weapon Shot** | Player: %s | Faction: %s | Weapon: %s | Location: %.1f, %.1f, %.1f | Violation: %s',
+                xPlayer.getName(), row and row.faction_label or 'Unknown',
+                weaponItemName or hashStr, cx, cy, cz,
+                isViolation and 'YES (unregistered)' or 'No') }),
+            { ['Content-Type'] = 'application/json' })
+    end
+
+    -- Webhook: illegal weapon in altercation (invalidShootout URL)
     if isViolation and isAltercation and Config.Weapons.illegalPenalty then
         -- Insert violation record
         if violationToLog and factionId then

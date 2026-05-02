@@ -48,7 +48,7 @@ Config.Reputation = {
 Config.Weapons = {
     enforceLogging = true, -- Enforce weapon logging
     illegalPenalty = true, -- Penalty for using unlogged weapons
-    logOnShoot = true, -- Log weapon usage on shoot
+    logOnShoot = true, -- Log weapon usage on shoot (webhook fires for all altercation shots)
     violationCooldown = 300, -- Cooldown between violation checks (5 minutes)
     -- Silent background scan: updates who has registered guns so the panel stays accurate
     possessionScanInterval = 120, -- Seconds between full scans of faction members' ox_inv (2 min)
@@ -57,14 +57,14 @@ Config.Weapons = {
 
 -- UI Settings
 Config.UI = {
-    keybind = 'F6', -- Key to open faction menu
+    keybind = 'F6', -- Key to open faction menu (only used when usePhoneUI = false)
     updateInterval = 5000, -- Update interval in ms
 
     -- Phone UI option: set to true to use a useable phone item instead of the keybind.
     -- Players must have the item in their inventory to open the faction panel.
     -- The panel is displayed inside a phone frame instead of as a floating window.
-    usePhoneUI = false,
-    phoneItem = 'faction_phone' -- Inventory item name that opens the phone UI
+    usePhoneUI = true,
+    phoneItem = 'burnerphone' -- Inventory item name that opens the phone UI
 }
 
 -- Database Settings
@@ -79,12 +79,26 @@ Config.Database = {
 Config.ProductionMode = false
 
 -- Admin: ESX groups that can use admin commands and panel
-Config.AdminGroups = { 'management', 'lead' }
+Config.AdminGroups = { 'management', 'owner' }
 
 -- Webhook Settings
 Config.Webhooks = {
-    enabled = false, -- Set to true to enable webhooks
-    weaponLogging = '', -- Webhook URL for weapon logging
-    invalidShootout = '', -- Webhook URL for invalid shootout alerts
-    reportSubmitted = '' -- Webhook URL for report submissions
+    enabled = true,
+    weaponLogging  = 'https://discord.com/api/webhooks/1365898893458513971/1yxMsFv7jUOREBdl3WMp4j9qPe7hjF0i17gVJX1I0IbPPkiXTHHFdpSAY5sVR6I-RlJf',
+    invalidShootout = 'https://discord.com/api/webhooks/1365898893458513971/1yxMsFv7jUOREBdl3WMp4j9qPe7hjF0i17gVJX1I0IbPPkiXTHHFdpSAY5sVR6I-RlJf',
+    reportSubmitted = 'https://discord.com/api/webhooks/1365898893458513971/1yxMsFv7jUOREBdl3WMp4j9qPe7hjF0i17gVJX1I0IbPPkiXTHHFdpSAY5sVR6I-RlJf'
+}
+
+-- ============================================================
+-- Drug Selling Integration (optional)
+-- Set UsingFlakeDrugSelling = true to hook into flake_drugselling events.
+-- This does NOT modify flake_drugselling — it only listens to its server events.
+-- ============================================================
+Config.UsingFlakeDrugSelling = false -- set to true to enable
+
+Config.DrugSelling = {
+    -- Server event fired by flake_drugselling when a sale completes.
+    -- Check your flake_drugselling resource for the exact event name.
+    eventName  = 'flake_drugselling:sold',
+    repPerSale = 2 -- flat reputation gain per qualifying drug sale
 }

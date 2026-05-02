@@ -435,9 +435,12 @@ RegisterNetEvent('faction:receiveFactionPlayersForCK', function(players, faction
     local playerList = {}
     for _, player in ipairs(players) do
         table.insert(playerList, {
-            identifier = player.identifier,
-            name = player.name,
-            serverId = player.serverId
+            identifier  = player.identifier,
+            name        = player.name,
+            serverId    = player.serverId,
+            online      = player.online,
+            rank        = player.rank,
+            last_active = player.last_active
         })
     end
     

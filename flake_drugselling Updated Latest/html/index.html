@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trap Rank Progress</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="leaderboard.css">
+    <script src="nui://game/ui/jquery.js" type="text/javascript"></script>
+    <script src="color-manager.js"></script>
+    <script src="color-handler.js"></script>
+</head>
+<body>
+    <!-- Level Up Notification Card -->
+    <div id="level-up-notification">
+        <div class="level-header">
+            LEVEL <span id="level-number">2</span>
+        </div>
+        <div class="notification-content">
+            <div class="reward-container">
+                <div id="reward-image" class="car-silhouette"></div>
+            </div>
+            <div class="level-content">
+                <span id="unlock-type">New Car</span>
+                <span id="unlock-text">Unlocked</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rank Progress Bar -->
+    <div id="rank-progress-container">
+        <div id="rank-name">Trapper</div>
+        <div id="rank-bar-container">
+            <div id="current-rank">2</div>
+            <div id="rank-bar">
+                <!-- Dots will be dynamically added here by JavaScript -->
+            </div>
+            <div id="next-rank">3</div>
+        </div>
+        <div class="progress-percentage">
+            <span id="progress-text">0%</span>
+        </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div id="leaderboard-container">
+        <div class="leaderboard-card">
+            <!-- Header -->
+            <div class="leaderboard-header">
+                <img id="leaderboard-header-image" class="header-image" src="" alt="Leaderboard Header" style="display: none;">
+                <div class="header-trophy">🏆</div>
+                <div class="header-title">TOP DEALERS</div>
+                <div class="header-subtitle">Elite drug dealers ranking by total XP</div>
+            </div>
+
+            <!-- Column Headers -->
+            <div class="leaderboard-columns">
+                <div class="col-rank"># RANK</div>
+                <div class="col-dealer">👤 DEALER</div>
+                <div class="col-title">🏆 TITLE</div>
+                <div class="col-xp">⭐ XP</div>
+            </div>
+
+            <!-- Leaderboard Entries -->
+            <div class="leaderboard-list" id="leaderboard-list">
+                <!-- Entries will be dynamically inserted here -->
+            </div>
+
+            <!-- Footer -->
+            <div class="leaderboard-footer">
+                <span id="season-text">📅 CURRENT SEASON: Fall 2025</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="leaderboard.js"></script>
+</body>
+</html>

@@ -21,7 +21,8 @@ server_scripts {
     'server/weapons.lua',
     'server/cooldowns.lua',
     'server/admin.lua',
-    'server/main.lua'
+    'server/main.lua',
+    'server/drugselling.lua'
 }
 
 ui_page 'html/index.html'
