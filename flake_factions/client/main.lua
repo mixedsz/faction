@@ -3,6 +3,27 @@
 local PlayerData = {}
 currentFaction = nil -- Make it global so ui.lua can access it
 local awaitingReputationRefresh = false
+local nuiOpen = false -- tracks phone UI open state for control disabling
+
+-- Per-frame thread: lock look and attack inputs while phone UI is open
+CreateThread(function()
+    while true do
+        if nuiOpen then
+            DisableControlAction(0, 1,   true) -- LookLeftRight
+            DisableControlAction(0, 2,   true) -- LookUpDown
+            DisableControlAction(0, 24,  true) -- Attack (LMB)
+            DisableControlAction(0, 25,  true) -- Aim (RMB)
+            DisableControlAction(0, 257, true) -- Attack2
+            DisableControlAction(0, 263, true) -- MeleeAttackLight
+            DisableControlAction(0, 264, true) -- MeleeAttackHeavy
+            DisableControlAction(0, 140, true) -- MeleeAttack1
+            DisableControlAction(0, 141, true) -- MeleeAttack2
+            Wait(0)
+        else
+            Wait(300)
+        end
+    end
+end)
 
 -- Import functions from ui.lua (deprecated - now handled in NUI)
 function OpenFactionReportTab()
@@ -110,7 +131,10 @@ function OpenFactionPanel()
     -- Production / demo mode: inject fake data, no server calls needed
     if Config.ProductionMode then
         SetNuiFocus(true, true)
-        SetNuiFocusKeepInput(true)
+        if usePhoneUI then
+            SetNuiFocusKeepInput(true)
+            nuiOpen = true
+        end
         local demo = GetDemoFaction()
         SendNUIMessage({ action = 'open', factions = { demo }, isAdmin = false, usePhoneUI = usePhoneUI })
         if usePhoneUI then
@@ -122,14 +146,20 @@ function OpenFactionPanel()
     -- Only show player's own faction, not all factions
     if not currentFaction or not currentFaction.faction then
         SetNuiFocus(true, true)
-        SetNuiFocusKeepInput(true)
+        if usePhoneUI then
+            SetNuiFocusKeepInput(true)
+            nuiOpen = true
+        end
         SendNUIMessage({ action = 'open', factions = {}, isAdmin = false, usePhoneUI = usePhoneUI })
         TriggerServerEvent('faction:getFactionData')
         return
     end
 
     SetNuiFocus(true, true)
-    SetNuiFocusKeepInput(true)
+    if usePhoneUI then
+        SetNuiFocusKeepInput(true)
+        nuiOpen = true
+    end
     local factionList = {
         {
             id = currentFaction.faction.id,
@@ -171,6 +201,7 @@ end)
 
 -- NUI callbacks
 RegisterNUICallback('close', function(_, cb)
+    nuiOpen = false
     SetNuiFocusKeepInput(false)
     SetNuiFocus(false, false)
     cb('ok')
