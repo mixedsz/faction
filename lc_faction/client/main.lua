@@ -24,8 +24,12 @@ RegisterNetEvent('esx:setJob', function(job)
 end)
 
 -- Faction command - opens NUI panel for members only
+-- When usePhoneUI is true the player must use the phone item; keybind/command is blocked.
 RegisterCommand('faction', function()
-    -- Open member panel (NUI) - admins should use /factionadmin
+    if Config.UI.usePhoneUI then
+        lib.notify({ type = 'error', description = 'Use your faction phone to access the panel.' })
+        return
+    end
     OpenFactionPanel()
 end, false)
 
@@ -34,6 +38,20 @@ RegisterKeyMapping('faction', 'Open Faction Menu', 'keyboard', Config.UI.keybind
 -- Receive faction data
 RegisterNetEvent('faction:receiveFactionData', function(data)
     currentFaction = data
+    -- Update the top-screen faction HUD badge when phone UI mode is active
+    if Config.UI.usePhoneUI then
+        if data and data.faction then
+            local rankLabel = Config.Ranks[data.rank] and Config.Ranks[data.rank].label or (data.rank or 'Member')
+            SendNUIMessage({
+                action = 'updateFactionHUD',
+                show = true,
+                factionLabel = data.faction.label or data.faction.name or 'Faction',
+                rank = rankLabel
+            })
+        else
+            SendNUIMessage({ action = 'updateFactionHUD', show = false })
+        end
+    end
     -- If the reputation tab is waiting for fresh data, push it now
     if awaitingReputationRefresh and data and data.faction then
         awaitingReputationRefresh = false
