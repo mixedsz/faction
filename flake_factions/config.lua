@@ -94,11 +94,12 @@ Config.Webhooks = {
 -- Set UsingFlakeDrugSelling = true to hook into flake_drugselling events.
 -- This does NOT modify flake_drugselling — it only listens to its server events.
 -- ============================================================
-Config.UsingFlakeDrugSelling = false -- set to true to enable
+Config.UsingFlakeDrugSelling = true -- set to false to disable
 
 Config.DrugSelling = {
-    -- Server event fired by flake_drugselling when a sale completes.
-    -- Check your flake_drugselling resource for the exact event name.
-    eventName  = 'flake_drugselling:sold',
+    -- Net event fired by the flake_drugselling client when a drug sale starts.
+    -- This is the internal event name used by flake_drugselling; do not change
+    -- unless you are using a different drug selling resource.
+    eventName  = 'flake_drugselling:server:sellDrug',
     repPerSale = 2 -- flat reputation gain per qualifying drug sale
 }
