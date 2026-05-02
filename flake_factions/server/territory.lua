@@ -1,6 +1,32 @@
 -- Territory management
 
 -- ============================================================
+-- ALL-TERRITORIES BROADCAST (for client visual rendering)
+-- ============================================================
+
+-- Send every territory to a single player (called on spawn)
+RegisterNetEvent('faction:getAllTerritories', function()
+    local source = source
+    local territories = MySQL.query.await([[
+        SELECT t.id, t.faction_id, t.name, t.type, t.x, t.y, t.z, t.radius,
+               f.label AS faction_label
+        FROM faction_territory t
+        JOIN faction_factions f ON f.id = t.faction_id
+    ]])
+    TriggerClientEvent('faction:receiveAllTerritories', source, territories or {})
+end)
+
+-- Broadcast territory visuals refresh to ALL online players (called after any territory add/remove)
+local function BroadcastTerritoryRefresh()
+    for _, pid in ipairs(GetPlayers()) do
+        local src = tonumber(pid)
+        if src then
+            TriggerClientEvent('faction:refreshTerritoryVisuals', src)
+        end
+    end
+end
+
+-- ============================================================
 -- TERRITORY ZONE DETECTION
 -- Cache territories in memory and notify players on enter/exit.
 -- ============================================================
@@ -177,13 +203,25 @@ RegisterNetEvent('faction:claimTerritory', function(data)
     local x       = tonumber(data.x) or 0.0
     local y       = tonumber(data.y) or 0.0
     local z       = tonumber(data.z) or 0.0
-    local radius  = tonumber(data.radius) or 50.0
+    -- Stash type doesn't need a spatial radius; default to 1.0 so the DB is non-null
+    local radius  = (ttype == 'stash') and 1.0 or (tonumber(data.radius) or 50.0)
+    -- Auto-generate a stash ID if type is stash and none was supplied
     local stashId = data.stashId and tostring(data.stashId):sub(1, 128) or nil
+    if ttype == 'stash' and (not stashId or stashId == '') then
+        stashId = string.format('faction_stash_%d_%d', row.faction_id, os.time())
+    end
 
     MySQL.insert([[
         INSERT INTO faction_territory (faction_id, name, type, x, y, z, radius, stash_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ]], { row.faction_id, name, ttype, x, y, z, radius, stashId })
+
+    -- Register the ox_inventory stash so it becomes usable immediately
+    if ttype == 'stash' and stashId and exports.ox_inventory then
+        pcall(function()
+            exports.ox_inventory:RegisterStash(stashId, name, 50, 100000, false, nil, vector3(x, y, z))
+        end)
+    end
 
     -- Apply claim cooldown
     MySQL.query([[
@@ -198,6 +236,7 @@ RegisterNetEvent('faction:claimTerritory', function(data)
     })
 
     InvalidateTerritoryCache()
+    BroadcastTerritoryRefresh()
     lib.notify(source, { type = 'success', description = 'Territory "' .. name .. '" claimed!' })
 
     -- Notify faction members
@@ -245,15 +284,26 @@ RegisterNetEvent('faction:adminAssignTerritory', function(factionId, data)
     local x       = tonumber(data.x) or 0.0
     local y       = tonumber(data.y) or 0.0
     local z       = tonumber(data.z) or 0.0
-    local radius  = tonumber(data.radius) or 50.0
+    local radius  = (ttype == 'stash') and 1.0 or (tonumber(data.radius) or 50.0)
     local stashId = data.stashId and tostring(data.stashId):sub(1, 128) or nil
+    if ttype == 'stash' and (not stashId or stashId == '') then
+        stashId = string.format('faction_stash_%d_%d', fid, os.time())
+    end
 
     MySQL.insert([[
         INSERT INTO faction_territory (faction_id, name, type, x, y, z, radius, stash_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ]], { fid, name, ttype, x, y, z, radius, stashId })
 
+    -- Register ox_inventory stash so it is immediately accessible
+    if ttype == 'stash' and stashId and exports.ox_inventory then
+        pcall(function()
+            exports.ox_inventory:RegisterStash(stashId, name, 50, 100000, false, nil, vector3(x, y, z))
+        end)
+    end
+
     InvalidateTerritoryCache()
+    BroadcastTerritoryRefresh()
     lib.notify(source, { type = 'success', description = 'Territory assigned.' })
 
     -- Refresh manage view for this faction
@@ -295,6 +345,7 @@ RegisterNetEvent('faction:adminDeleteTerritory', function(territoryId, factionId
 
     MySQL.update('DELETE FROM faction_territory WHERE id = ?', { tid })
     InvalidateTerritoryCache()
+    BroadcastTerritoryRefresh()
 
     -- Apply reputation loss for losing territory
     if terr and terr.faction_id then

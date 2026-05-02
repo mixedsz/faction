@@ -1425,7 +1425,6 @@
                             <select id="territory-type" class="form-select">
                                 <option value="turf">Turf</option>
                                 <option value="stash">Stash</option>
-                                <option value="shop">Shop</option>
                             </select>
                         </div>
                     </div>
@@ -1446,13 +1445,13 @@
                         <label for="coord-z">Z Coordinate:</label>
                         <input type="number" id="coord-z" class="form-select" placeholder="Z coordinate" step="0.01" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="radius-group">
                         <label for="radius">Radius (meters):</label>
                         <input type="number" id="radius" class="form-select" placeholder="50.0" step="0.1" value="50.0">
                     </div>
-                    <div class="form-group">
-                        <label for="stash-id">Stash ID (optional):</label>
-                        <input type="text" id="stash-id" class="form-select" placeholder="Leave empty if not applicable">
+                    <div class="form-group" id="stash-id-group" style="display:none;">
+                        <label for="stash-id">Stash ID (optional — auto-generated if left empty):</label>
+                        <input type="text" id="stash-id" class="form-select" placeholder="Auto-generated">
                     </div>
                     <div class="form-actions">
                         <button class="btn-submit" id="btn-submit-territory">Assign Territory</button>
@@ -1461,6 +1460,20 @@
                 </div>
             `;
             
+            // Show/hide radius vs stash-id fields based on selected type
+            const typeSelect = tabContent.querySelector('#territory-type');
+            const radiusGroup = tabContent.querySelector('#radius-group');
+            const stashIdGroup = tabContent.querySelector('#stash-id-group');
+            function updateTerritoryTypeFields() {
+                const t = typeSelect ? typeSelect.value : 'turf';
+                if (radiusGroup)  radiusGroup.style.display  = (t === 'turf') ? '' : 'none';
+                if (stashIdGroup) stashIdGroup.style.display = (t === 'stash') ? '' : 'none';
+            }
+            if (typeSelect) {
+                typeSelect.addEventListener('change', updateTerritoryTypeFields);
+                updateTerritoryTypeFields(); // run once on render
+            }
+
             const posBtn = tabContent.querySelector('#btn-use-position');
             if (posBtn) {
                 posBtn.addEventListener('click', function() {

@@ -248,8 +248,10 @@ end)
 -- Called by NUI when the player focuses an input / textarea field (starts typing)
 RegisterNUICallback('inputFocused', function(_, cb)
     nuiInputFocused = true
-    -- Disable game movement so the player cannot walk while typing
-    if Config.UI.usePhoneUI then
+    -- Only toggle keep-input in phone mode when the faction panel itself is open.
+    -- When the admin NUI form is open (nuiOpen = false), skip this so the camera
+    -- doesn't get released and allow shooting/punching.
+    if Config.UI.usePhoneUI and nuiOpen then
         SetNuiFocusKeepInput(false)
     end
     cb('ok')
@@ -258,8 +260,7 @@ end)
 -- Called by NUI when the player blurs an input / textarea field (stops typing)
 RegisterNUICallback('inputBlurred', function(_, cb)
     nuiInputFocused = false
-    -- Restore movement in phone mode
-    if Config.UI.usePhoneUI then
+    if Config.UI.usePhoneUI and nuiOpen then
         SetNuiFocusKeepInput(true)
     end
     cb('ok')
