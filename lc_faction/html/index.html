@@ -11,6 +11,45 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Phone UI wrapper - only shown when Config.UI.usePhoneUI = true -->
+    <div id="phone-wrapper" class="hidden">
+        <div class="phone-device">
+            <div class="phone-top-chrome">
+                <div class="phone-dynamic-island"></div>
+            </div>
+            <div class="phone-status-bar">
+                <span id="phone-clock">00:00</span>
+                <div class="phone-status-icons">
+                    <!-- Signal bars -->
+                    <svg width="17" height="12" viewBox="0 0 17 12" fill="none" aria-hidden="true">
+                        <rect x="0" y="6" width="3" height="6" rx="1" fill="currentColor"/>
+                        <rect x="4.5" y="4" width="3" height="8" rx="1" fill="currentColor"/>
+                        <rect x="9" y="2" width="3" height="10" rx="1" fill="currentColor"/>
+                        <rect x="13.5" y="0" width="3" height="12" rx="1" fill="currentColor"/>
+                    </svg>
+                    <!-- Wi-Fi -->
+                    <svg width="16" height="12" viewBox="0 0 16 12" fill="none" aria-hidden="true">
+                        <path d="M8 9.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z" fill="currentColor"/>
+                        <path d="M3.5 6.5C4.9 5.1 6.4 4.4 8 4.4s3.1.7 4.5 2.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                        <path d="M0.5 3.5C2.6 1.4 5.2 0.2 8 0.2s5.4 1.2 7.5 3.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                    </svg>
+                    <!-- Battery -->
+                    <svg width="25" height="12" viewBox="0 0 25 12" fill="none" aria-hidden="true">
+                        <rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/>
+                        <rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/>
+                        <path d="M23 4v4a2 2 0 0 0 0-4z" fill="currentColor" fill-opacity="0.4"/>
+                    </svg>
+                </div>
+            </div>
+            <div id="phone-screen" class="phone-screen">
+                <!-- faction-panel is moved here by JS when phone mode is active -->
+            </div>
+            <div class="phone-bottom-chrome">
+                <div class="phone-home-pill"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="faction-panel" class="panel hidden">
         <div class="panel-inner">
             <header class="panel-header">

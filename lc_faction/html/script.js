@@ -9,6 +9,11 @@
     let currentFaction = null;
     let currentTab = 'overview';
     let isAdminMode = false;
+    let isPhoneMode = false;
+    let phoneClockInterval = null;
+    const phoneWrapper = document.getElementById('phone-wrapper');
+    const phoneScreen = document.getElementById('phone-screen');
+    const phoneClock = document.getElementById('phone-clock');
     let tabData = {
         members: null,
         weapons: null,
@@ -111,9 +116,40 @@
         }
     }
 
+    function updatePhoneClock() {
+        if (!phoneClock) return;
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        phoneClock.textContent = h + ':' + m;
+    }
+
+    function openPhoneMode() {
+        if (!phoneWrapper || !phoneScreen) return;
+        isPhoneMode = true;
+        if (panel.parentElement !== phoneScreen) phoneScreen.appendChild(panel);
+        panel.classList.add('phone-mode');
+        phoneWrapper.classList.remove('hidden');
+        phoneWrapper.classList.add('active');
+        updatePhoneClock();
+        if (phoneClockInterval) clearInterval(phoneClockInterval);
+        phoneClockInterval = setInterval(updatePhoneClock, 30000);
+    }
+
+    function exitPhoneMode() {
+        if (!phoneWrapper) return;
+        isPhoneMode = false;
+        panel.classList.remove('phone-mode');
+        phoneWrapper.classList.add('hidden');
+        phoneWrapper.classList.remove('active');
+        if (phoneClockInterval) { clearInterval(phoneClockInterval); phoneClockInterval = null; }
+        if (panel.parentElement !== document.body) document.body.appendChild(panel);
+    }
+
     function close() {
         clearCooldownTimers();
         panel.classList.add('hidden');
+        if (isPhoneMode) exitPhoneMode();
         currentFaction = null;
         currentTab = 'overview';
         tabContent.innerHTML = '';
@@ -2921,10 +2957,16 @@
         if (data.action === 'open') {
             currentFaction = (data.factions && data.factions[0]) || null;
             const isAdmin = data.isAdmin || false;
-            
+
             // Update tabs based on admin or member
             updateTabsForRole(isAdmin);
-            
+
+            if (data.usePhoneUI) {
+                openPhoneMode();
+            } else {
+                if (isPhoneMode) exitPhoneMode();
+            }
+
             panel.classList.remove('hidden');
             switchTab('overview');
         }

@@ -81,15 +81,16 @@ end)
 
 -- Open the Faction Member NUI panel (for regular players)
 function OpenFactionPanel()
+    local usePhoneUI = Config.UI.usePhoneUI == true
     -- Only show player's own faction, not all factions
     if not currentFaction or not currentFaction.faction then
         SetNuiFocus(true, true)
-        SendNUIMessage({ action = 'open', factions = {}, isAdmin = false })
+        SendNUIMessage({ action = 'open', factions = {}, isAdmin = false, usePhoneUI = usePhoneUI })
         -- Request faction data to check if player is in a faction
         TriggerServerEvent('faction:getFactionData')
         return
     end
-    
+
     -- Player is in a faction, show it in NUI
     SetNuiFocus(true, true)
     local factionList = {
@@ -103,7 +104,14 @@ function OpenFactionPanel()
             max_wars = currentFaction.faction.max_wars
         }
     }
-    SendNUIMessage({ action = 'open', factions = factionList, isAdmin = false })
+    SendNUIMessage({ action = 'open', factions = factionList, isAdmin = false, usePhoneUI = usePhoneUI })
+end
+
+-- Phone item usage: triggers OpenFactionPanel when the player uses the faction phone item
+if Config.UI.usePhoneUI then
+    RegisterNetEvent('faction:openPhoneUI', function()
+        OpenFactionPanel()
+    end)
 end
 
 -- Receive faction list and update NUI (only if NUI is already open)

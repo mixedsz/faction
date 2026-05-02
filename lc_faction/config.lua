@@ -58,7 +58,13 @@ Config.Weapons = {
 -- UI Settings
 Config.UI = {
     keybind = 'F6', -- Key to open faction menu
-    updateInterval = 5000 -- Update interval in ms
+    updateInterval = 5000, -- Update interval in ms
+
+    -- Phone UI option: set to true to use a useable phone item instead of the keybind.
+    -- Players must have the item in their inventory to open the faction panel.
+    -- The panel is displayed inside a phone frame instead of as a floating window.
+    usePhoneUI = false,
+    phoneItem = 'faction_phone' -- Inventory item name that opens the phone UI
 }
 
 -- Database Settings
