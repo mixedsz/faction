@@ -12,6 +12,7 @@
     let isPhoneMode = false;
     let phoneClockInterval = null;
     const phoneWrapper = document.getElementById('phone-wrapper');
+    const phoneDevice = document.getElementById('phone-device');
     const phoneScreen = document.getElementById('phone-screen');
     const phoneClock = document.getElementById('phone-clock');
     let tabData = {
@@ -129,20 +130,25 @@
         isPhoneMode = true;
         if (panel.parentElement !== phoneScreen) phoneScreen.appendChild(panel);
         panel.classList.add('phone-mode');
+        // Show wrapper (may already be visible for badge) and the phone device
         phoneWrapper.classList.remove('hidden');
         phoneWrapper.classList.add('active');
+        if (phoneDevice) phoneDevice.classList.remove('hidden');
         updatePhoneClock();
         if (phoneClockInterval) clearInterval(phoneClockInterval);
-        phoneClockInterval = setInterval(updatePhoneClock, 30000);
+        phoneClockInterval = setInterval(updatePhoneClock, 1000);
     }
 
     function exitPhoneMode() {
         if (!phoneWrapper) return;
         isPhoneMode = false;
-        panel.classList.remove('phone-mode');
-        phoneWrapper.classList.add('hidden');
+        // Hide the phone device but keep the wrapper visible for the faction badge
+        if (phoneDevice) phoneDevice.classList.add('hidden');
         phoneWrapper.classList.remove('active');
+        const hud = document.getElementById('faction-hud');
+        if (!hud || hud.classList.contains('hidden')) phoneWrapper.classList.add('hidden');
         if (phoneClockInterval) { clearInterval(phoneClockInterval); phoneClockInterval = null; }
+        panel.classList.remove('phone-mode');
         if (panel.parentElement !== document.body) document.body.appendChild(panel);
     }
 
@@ -2982,8 +2988,12 @@
                 document.getElementById('faction-hud-label').textContent = data.factionLabel || '';
                 document.getElementById('faction-hud-rank').textContent = data.rank || '';
                 hud.classList.remove('hidden');
+                // Show the wrapper so the badge is visible even when phone is closed
+                if (phoneWrapper) phoneWrapper.classList.remove('hidden');
             } else {
                 hud.classList.add('hidden');
+                // Hide the wrapper only if the phone is also not open
+                if (!isPhoneMode && phoneWrapper) phoneWrapper.classList.add('hidden');
             }
         }
 
