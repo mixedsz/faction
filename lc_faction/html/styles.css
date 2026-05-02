@@ -1497,28 +1497,41 @@ body {
    Displayed when Config.UI.usePhoneUI = true
    ============================================================ */
 
-/* Faction HUD badge — always visible when player has a faction (phone UI mode) */
-#faction-hud {
+/* Outer wrapper — fixed to bottom-right, stacks badge above phone as a flex column */
+#phone-wrapper {
     position: fixed;
-    top: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 998;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999;
     pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+#phone-wrapper.active {
+    pointer-events: all;
+}
+
+/* Faction badge — flows inside the wrapper above the phone device */
+#faction-hud {
+    pointer-events: none;
+    align-self: flex-end;
 }
 
 .faction-hud-inner {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: rgba(10, 10, 12, 0.78);
+    background: rgba(10, 10, 12, 0.82);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border: 1px solid rgba(255, 255, 255, 0.11);
     border-radius: 24px;
-    padding: 7px 18px 7px 14px;
+    padding: 6px 16px 6px 12px;
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: #fff;
     white-space: nowrap;
@@ -1539,7 +1552,7 @@ body {
 .faction-hud-sep {
     color: rgba(255, 255, 255, 0.3);
     font-weight: 400;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 #faction-hud-rank {
@@ -1547,27 +1560,16 @@ body {
     font-weight: 500;
 }
 
-#phone-wrapper {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 999;
-    pointer-events: none;
-}
-
-#phone-wrapper.active {
-    pointer-events: all;
-}
-
+/* Phone device — sized to match a typical phone script in the corner */
 .phone-device {
-    width: 340px;
-    height: 736px;
+    width: 270px;
+    height: 585px;
     background: linear-gradient(160deg, #1c1c1e 0%, #0d0d0f 100%);
-    border-radius: 46px;
+    border-radius: 36px;
     box-shadow:
         0 0 0 1px rgba(255, 255, 255, 0.13),
         0 0 0 3px #0a0a0c,
-        0 32px 64px rgba(0, 0, 0, 0.9),
+        0 24px 48px rgba(0, 0, 0, 0.9),
         inset 0 1px 0 rgba(255, 255, 255, 0.09);
     display: flex;
     flex-direction: column;
@@ -1580,12 +1582,12 @@ body {
     content: '';
     position: absolute;
     left: -3px;
-    top: 114px;
+    top: 90px;
     width: 3px;
-    height: 26px;
+    height: 20px;
     background: #2c2c2e;
     border-radius: 2px 0 0 2px;
-    box-shadow: 0 40px 0 #2c2c2e, 0 80px 0 #2c2c2e;
+    box-shadow: 0 32px 0 #2c2c2e, 0 64px 0 #2c2c2e;
 }
 
 /* Power button (decorative, right side) */
@@ -1593,38 +1595,38 @@ body {
     content: '';
     position: absolute;
     right: -3px;
-    top: 148px;
+    top: 118px;
     width: 3px;
-    height: 62px;
+    height: 50px;
     background: #2c2c2e;
     border-radius: 0 2px 2px 0;
 }
 
 .phone-top-chrome {
     flex-shrink: 0;
-    height: 46px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding-top: 12px;
+    padding-top: 10px;
 }
 
 .phone-dynamic-island {
-    width: 106px;
-    height: 30px;
+    width: 84px;
+    height: 24px;
     background: #000;
-    border-radius: 18px;
+    border-radius: 14px;
 }
 
 .phone-status-bar {
     flex-shrink: 0;
-    height: 24px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0 16px;
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     color: #fff;
     letter-spacing: -0.2px;
@@ -1633,7 +1635,7 @@ body {
 .phone-status-icons {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     color: #fff;
 }
 
@@ -1643,20 +1645,20 @@ body {
     display: flex;
     flex-direction: column;
     background: #18181b;
-    margin: 0 4px;
-    border-radius: 4px 4px 0 0;
+    margin: 0 3px;
+    border-radius: 3px 3px 0 0;
 }
 
 .phone-bottom-chrome {
     flex-shrink: 0;
-    height: 26px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .phone-home-pill {
-    width: 118px;
+    width: 94px;
     height: 4px;
     background: rgba(255, 255, 255, 0.28);
     border-radius: 3px;
