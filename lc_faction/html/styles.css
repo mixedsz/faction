@@ -1497,79 +1497,27 @@ body {
    Displayed when Config.UI.usePhoneUI = true
    ============================================================ */
 
-/* Outer wrapper — fixed to bottom-right, stacks badge above phone as a flex column */
 #phone-wrapper {
     position: fixed;
     bottom: 20px;
     right: 20px;
     z-index: 999;
     pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
 }
 
 #phone-wrapper.active {
     pointer-events: all;
 }
 
-/* Faction badge — flows inside the wrapper above the phone device */
-#faction-hud {
-    pointer-events: none;
-    align-self: flex-end;
-}
-
-.faction-hud-inner {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(10, 10, 12, 0.82);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(255, 255, 255, 0.11);
-    border-radius: 24px;
-    padding: 6px 16px 6px 12px;
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    color: #fff;
-    white-space: nowrap;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-}
-
-.faction-hud-icon {
-    color: #a1a1aa;
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-#faction-hud-label {
-    color: #fff;
-}
-
-.faction-hud-sep {
-    color: rgba(255, 255, 255, 0.3);
-    font-weight: 400;
-    font-size: 11px;
-}
-
-#faction-hud-rank {
-    color: #a78bfa;
-    font-weight: 500;
-}
-
-/* Phone device — sized to match a typical phone script in the corner */
 .phone-device {
-    width: 270px;
-    height: 585px;
+    width: 310px;
+    height: 672px;
     background: linear-gradient(160deg, #1c1c1e 0%, #0d0d0f 100%);
-    border-radius: 36px;
+    border-radius: 42px;
     box-shadow:
         0 0 0 1px rgba(255, 255, 255, 0.13),
         0 0 0 3px #0a0a0c,
-        0 24px 48px rgba(0, 0, 0, 0.9),
+        0 28px 56px rgba(0, 0, 0, 0.9),
         inset 0 1px 0 rgba(255, 255, 255, 0.09);
     display: flex;
     flex-direction: column;
@@ -1582,12 +1530,12 @@ body {
     content: '';
     position: absolute;
     left: -3px;
-    top: 90px;
+    top: 104px;
     width: 3px;
-    height: 20px;
+    height: 23px;
     background: #2c2c2e;
     border-radius: 2px 0 0 2px;
-    box-shadow: 0 32px 0 #2c2c2e, 0 64px 0 #2c2c2e;
+    box-shadow: 0 37px 0 #2c2c2e, 0 74px 0 #2c2c2e;
 }
 
 /* Power button (decorative, right side) */
@@ -1595,38 +1543,73 @@ body {
     content: '';
     position: absolute;
     right: -3px;
-    top: 118px;
+    top: 136px;
     width: 3px;
-    height: 50px;
+    height: 58px;
     background: #2c2c2e;
     border-radius: 0 2px 2px 0;
 }
 
 .phone-top-chrome {
     flex-shrink: 0;
-    height: 36px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding-top: 10px;
+    padding-top: 12px;
 }
 
+/* Dynamic Island — holds faction name · rank inside the black pill */
 .phone-dynamic-island {
-    width: 84px;
-    height: 24px;
+    min-width: 96px;
+    max-width: 200px;
+    height: 28px;
     background: #000;
     border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 14px;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+#phone-faction-label {
+    color: #fff;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.phone-di-sep {
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 400;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+#phone-faction-rank {
+    color: #a78bfa;
+    font-weight: 600;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .phone-status-bar {
     flex-shrink: 0;
-    height: 20px;
+    height: 23px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 16px;
+    padding: 0 18px;
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     color: #fff;
     letter-spacing: -0.2px;
@@ -1651,14 +1634,14 @@ body {
 
 .phone-bottom-chrome {
     flex-shrink: 0;
-    height: 20px;
+    height: 23px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .phone-home-pill {
-    width: 94px;
+    width: 108px;
     height: 4px;
     background: rgba(255, 255, 255, 0.28);
     border-radius: 3px;
