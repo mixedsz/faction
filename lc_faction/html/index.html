@@ -11,30 +11,16 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Phone UI wrapper - only shown when Config.UI.usePhoneUI = true -->
-    <!-- Contains both the faction HUD badge and the phone device -->
+    <!-- Phone UI wrapper - only visible when player opens the phone item -->
     <div id="phone-wrapper" class="hidden">
-
-        <!-- Faction badge: visible whenever player has a faction, sits above the phone -->
-        <div id="faction-hud" class="hidden">
-            <div class="faction-hud-inner">
-                <span class="faction-hud-icon">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                        <path d="M2 17l10 5 10-5"/>
-                        <path d="M2 12l10 5 10-5"/>
-                    </svg>
-                </span>
-                <span id="faction-hud-label">Faction</span>
-                <span class="faction-hud-sep">·</span>
-                <span id="faction-hud-rank">Member</span>
-            </div>
-        </div>
-
-        <!-- Phone device: only shown when player uses the phone item -->
-        <div id="phone-device" class="phone-device hidden">
+        <div class="phone-device">
             <div class="phone-top-chrome">
-                <div class="phone-dynamic-island"></div>
+                <!-- Dynamic Island: contains faction name + rank when phone is open -->
+                <div class="phone-dynamic-island">
+                    <span id="phone-faction-label"></span>
+                    <span class="phone-di-sep">·</span>
+                    <span id="phone-faction-rank"></span>
+                </div>
             </div>
             <div class="phone-status-bar">
                 <span id="phone-clock">00:00</span>
@@ -67,7 +53,6 @@
                 <div class="phone-home-pill"></div>
             </div>
         </div>
-
     </div>
 
     <div id="faction-panel" class="panel hidden">

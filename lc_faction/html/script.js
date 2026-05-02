@@ -12,7 +12,6 @@
     let isPhoneMode = false;
     let phoneClockInterval = null;
     const phoneWrapper = document.getElementById('phone-wrapper');
-    const phoneDevice = document.getElementById('phone-device');
     const phoneScreen = document.getElementById('phone-screen');
     const phoneClock = document.getElementById('phone-clock');
     let tabData = {
@@ -130,10 +129,8 @@
         isPhoneMode = true;
         if (panel.parentElement !== phoneScreen) phoneScreen.appendChild(panel);
         panel.classList.add('phone-mode');
-        // Show wrapper (may already be visible for badge) and the phone device
         phoneWrapper.classList.remove('hidden');
         phoneWrapper.classList.add('active');
-        if (phoneDevice) phoneDevice.classList.remove('hidden');
         updatePhoneClock();
         if (phoneClockInterval) clearInterval(phoneClockInterval);
         phoneClockInterval = setInterval(updatePhoneClock, 1000);
@@ -142,11 +139,8 @@
     function exitPhoneMode() {
         if (!phoneWrapper) return;
         isPhoneMode = false;
-        // Hide the phone device but keep the wrapper visible for the faction badge
-        if (phoneDevice) phoneDevice.classList.add('hidden');
+        phoneWrapper.classList.add('hidden');
         phoneWrapper.classList.remove('active');
-        const hud = document.getElementById('faction-hud');
-        if (!hud || hud.classList.contains('hidden')) phoneWrapper.classList.add('hidden');
         if (phoneClockInterval) { clearInterval(phoneClockInterval); phoneClockInterval = null; }
         panel.classList.remove('phone-mode');
         if (panel.parentElement !== document.body) document.body.appendChild(panel);
@@ -2982,19 +2976,11 @@
         }
         
         if (data.action === 'updateFactionHUD') {
-            const hud = document.getElementById('faction-hud');
-            if (!hud) return;
-            if (data.show) {
-                document.getElementById('faction-hud-label').textContent = data.factionLabel || '';
-                document.getElementById('faction-hud-rank').textContent = data.rank || '';
-                hud.classList.remove('hidden');
-                // Show the wrapper so the badge is visible even when phone is closed
-                if (phoneWrapper) phoneWrapper.classList.remove('hidden');
-            } else {
-                hud.classList.add('hidden');
-                // Hide the wrapper only if the phone is also not open
-                if (!isPhoneMode && phoneWrapper) phoneWrapper.classList.add('hidden');
-            }
+            // Update faction info inside the Dynamic Island pill (visible only when phone is open)
+            const labelEl = document.getElementById('phone-faction-label');
+            const rankEl = document.getElementById('phone-faction-rank');
+            if (labelEl) labelEl.textContent = data.show ? (data.factionLabel || '') : '';
+            if (rankEl) rankEl.textContent = data.show ? (data.rank || '') : '';
         }
 
         if (data.action === 'hide') {
