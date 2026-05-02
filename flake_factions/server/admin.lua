@@ -150,6 +150,14 @@ RegisterNetEvent('faction:adminGetFactionMembers', function(factionId)
             END, player_name
     ]], { fid })
 
+    -- Attach live online status
+    for _, m in ipairs(members or {}) do
+        local p = ESX.GetPlayerFromIdentifier(m.identifier)
+        m.online    = p ~= nil
+        m.server_id = p and p.source or 0
+        if p then m.player_name = p.getName() end
+    end
+
     TriggerClientEvent('faction:adminReceiveFactionMembers', source, fid, members or {})
 end)
 
@@ -496,13 +504,43 @@ RegisterNetEvent('faction:adminUpdateCK', function(ckId, status)
 
     -- If executed: update member CK count and reputation
     if status == 'executed' then
-        local ck = MySQL.query.await('SELECT * FROM faction_ck_requests WHERE id = ? LIMIT 1', { cid })
+        local ck = MySQL.query.await([[
+            SELECT ck.*, f.label AS faction_label
+            FROM faction_ck_requests ck
+            LEFT JOIN faction_factions f ON f.id = ck.requesting_faction_id
+            WHERE ck.id = ? LIMIT 1
+        ]], { cid })
         if ck and #ck > 0 then
             local c = ck[1]
             -- Increment CKs involved for all members of requesting faction
             MySQL.update('UPDATE faction_members SET cks_involved = cks_involved + 1 WHERE faction_id = ?', { c.requesting_faction_id })
             -- Reputation gain for requesting faction
-            MySQL.update('UPDATE faction_factions SET reputation = reputation + ? WHERE id = ?', { 10, c.requesting_faction_id })
+            local repGain = 10
+            MySQL.update('UPDATE faction_factions SET reputation = reputation + ? WHERE id = ?', { repGain, c.requesting_faction_id })
+
+            -- Notify faction
+            NotifyFactionMembers(c.requesting_faction_id, 'faction:receiveNotification', {
+                type = 'success', title = 'CK Executed',
+                description = 'CK on ' .. (c.target_name or 'Unknown') .. ' was executed! +' .. repGain .. ' rep.'
+            })
+
+            -- Push fresh faction data to all online members so reputation shows immediately
+            local members = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { c.requesting_faction_id })
+            if members then
+                for _, m in ipairs(members) do
+                    local mp = ESX.GetPlayerFromIdentifier(m.identifier)
+                    if mp then SendFactionDataToPlayer(mp.source) end
+                end
+            end
+
+            -- Webhook
+            if Config.Webhooks.enabled and Config.Webhooks.reportSubmitted ~= '' then
+                PerformHttpRequest(Config.Webhooks.reportSubmitted, function() end, 'POST',
+                    json.encode({ content = string.format(
+                        '**CK Executed** | Faction: %s | Target: %s | +%d Rep',
+                        c.faction_label or 'Unknown', c.target_name or 'Unknown', repGain) }),
+                    { ['Content-Type'] = 'application/json' })
+            end
         end
     end
 

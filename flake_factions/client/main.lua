@@ -5,10 +5,16 @@ currentFaction = nil -- Make it global so ui.lua can access it
 local awaitingReputationRefresh = false
 nuiOpen = false -- global so weapons.lua and other files can read it
 
--- Per-frame thread: lock look, attack and chat inputs while phone UI is open
+-- Tracks whether an input/textarea in the NUI is currently focused (player typing)
+local nuiInputFocused = false
+
+-- Per-frame thread: lock look, attack, movement and chat while phone UI is open.
+-- When the player is actively typing in an input field (nuiInputFocused), also lock movement
+-- so they cannot walk / sprint / jump while typing.
 CreateThread(function()
     while true do
         if nuiOpen then
+            -- Always disable look, attack and chat
             DisableControlAction(0, 1,   true) -- LookLeftRight
             DisableControlAction(0, 2,   true) -- LookUpDown
             DisableControlAction(0, 24,  true) -- Attack (LMB)
@@ -18,9 +24,20 @@ CreateThread(function()
             DisableControlAction(0, 264, true) -- MeleeAttackHeavy
             DisableControlAction(0, 140, true) -- MeleeAttack1
             DisableControlAction(0, 141, true) -- MeleeAttack2
-            DisableControlAction(0, 245, true) -- INPUT_MULTIPLAYER_CHAT (T key / open chat)
+            DisableControlAction(0, 245, true) -- INPUT_MULTIPLAYER_CHAT (T key)
+
+            -- When the player is typing in a form field, lock movement too
+            if nuiInputFocused then
+                DisableControlAction(0, 30,  true) -- MoveLeftRight (A/D)
+                DisableControlAction(0, 31,  true) -- MoveUpDown (W/S)
+                DisableControlAction(0, 21,  true) -- Sprint
+                DisableControlAction(0, 22,  true) -- Jump
+                DisableControlAction(0, 36,  true) -- Duck/Cover
+                DisableControlAction(0, 23,  true) -- Enter vehicle
+            end
             Wait(0)
         else
+            nuiInputFocused = false
             Wait(300)
         end
     end
@@ -222,8 +239,29 @@ end)
 -- NUI callbacks
 RegisterNUICallback('close', function(_, cb)
     nuiOpen = false
+    nuiInputFocused = false
     SetNuiFocusKeepInput(false)
     SetNuiFocus(false, false)
+    cb('ok')
+end)
+
+-- Called by NUI when the player focuses an input / textarea field (starts typing)
+RegisterNUICallback('inputFocused', function(_, cb)
+    nuiInputFocused = true
+    -- Disable game movement so the player cannot walk while typing
+    if Config.UI.usePhoneUI then
+        SetNuiFocusKeepInput(false)
+    end
+    cb('ok')
+end)
+
+-- Called by NUI when the player blurs an input / textarea field (stops typing)
+RegisterNUICallback('inputBlurred', function(_, cb)
+    nuiInputFocused = false
+    -- Restore movement in phone mode
+    if Config.UI.usePhoneUI then
+        SetNuiFocusKeepInput(true)
+    end
     cb('ok')
 end)
 

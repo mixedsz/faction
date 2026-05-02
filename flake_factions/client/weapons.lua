@@ -44,11 +44,63 @@ CreateThread(function()
                     lastShotTime = currentTime
                     local coords = GetEntityCoords(ped)
                     local isAltercation = IsInAltercation()
-                    TriggerServerEvent('faction:logWeaponUsage', weaponHash, coords, isAltercation)
+
+                    -- Resolve weapon item name from ox_inventory so the server can
+                    -- match by item name / serial instead of raw numeric hash
+                    local weaponItemName = nil
+                    if exports.ox_inventory then
+                        local ok, items = pcall(function()
+                            return exports.ox_inventory:GetPlayerItems()
+                        end)
+                        if ok and type(items) == 'table' then
+                            for _, item in ipairs(items) do
+                                if item and item.name and item.name:sub(1,7) == 'weapon_' then
+                                    -- Match by checking if this item is the equipped weapon
+                                    local h = GetHashKey(item.name:upper())
+                                    if h == weaponHash then
+                                        weaponItemName = item.name:lower()
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    TriggerServerEvent('faction:logWeaponUsage', weaponHash, coords, isAltercation, weaponItemName)
                 end
             end
         else
             lastWeapon = nil
+        end
+    end
+end)
+
+-- ============================================================
+-- KILL / DEATH TRACKING FOR REPUTATION
+-- ============================================================
+
+-- Track when the local player kills another player (enemy faction)
+AddEventHandler('gameEventTriggered', function(name, args)
+    if name == 'CEventNetworkEntityDamage' then
+        local victim    = args[1]
+        local attacker  = args[2]
+        local isDead    = args[4]
+
+        if not isDead then return end
+
+        local localPed = PlayerPedId()
+
+        -- We killed someone
+        if attacker == localPed and victim ~= localPed then
+            if IsEntityAPlayer(victim) then
+                local victimServerId = GetPlayerServerId(NetworkGetPlayerIndexFromPed(victim))
+                TriggerServerEvent('faction:playerKilledPlayer', victimServerId)
+            end
+        end
+
+        -- We died (killed by someone or something)
+        if victim == localPed then
+            TriggerServerEvent('faction:playerDied')
         end
     end
 end)

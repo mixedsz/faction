@@ -474,11 +474,12 @@ function AdminTransferBoss(factionId)
 end
 
 RegisterNetEvent('faction:adminReceiveFactionMembers', function(factionId, members)
-    -- Send to NUI for display
+    -- Send to NUI for display (include both members and items for compatibility)
     SendNUIMessage({
         action = 'updateTab',
         tab = 'members',
         content = {
+            members = members or {},
             items = members or {},
             factionId = factionId,
             isAdmin = true

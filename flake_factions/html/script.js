@@ -288,9 +288,13 @@
             const initials = (member.player_name || 'U').split(' ').map(n => n.charAt(0)).join('').toUpperCase().substring(0, 2);
             const nameHash = (member.player_name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
             const hue = (nameHash * 7) % 360;
-            const color = `hsl(${hue}, 65%, 50%)`;
+            const isOnline = member.online === true || member.online === 1;
+            const color = isOnline ? `hsl(${hue}, 65%, 50%)` : '#52525b';
             const rankLabel = getRankLabel(member.rank);
-            
+            const onlineText = isOnline
+                ? `<span style="color:#22c55e;font-size:11px;">● Online${member.server_id ? ' (ID: ' + member.server_id + ')' : ''}</span>`
+                : `<span style="color:#71717a;font-size:11px;">○ Offline</span>`;
+
             html += `
                 <div class="member-item" data-member-id="${member.id}" data-identifier="${escapeHtml(member.identifier || '')}">
                     <div style="display: flex; align-items: center; gap: 14px; flex: 1;">
@@ -299,8 +303,9 @@
                         </div>
                         <div style="flex: 1;">
                             <div class="player-name">${escapeHtml(member.player_name || 'Unknown')}</div>
-                            <div style="color: #71717a; font-size: 12px; margin-top: 2px;">
-                                ${escapeHtml(rankLabel)} • Rep: ${member.reputation_contribution || 0}
+                            <div style="color: #71717a; font-size: 12px; margin-top: 2px; display: flex; align-items: center; gap: 8px;">
+                                <span>${escapeHtml(rankLabel)} • Rep: ${member.reputation_contribution || 0}</span>
+                                ${onlineText}
                             </div>
                         </div>
                     </div>
@@ -2971,6 +2976,21 @@
 
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && !panel.classList.contains('hidden')) close();
+    });
+
+    // ── Input focus/blur: tell the game when the player starts/stops typing ──
+    // This lets the Lua side lock movement controls while text fields are focused.
+    document.addEventListener('focusin', function(e) {
+        const tag = e.target && e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+            post('inputFocused', {});
+        }
+    });
+    document.addEventListener('focusout', function(e) {
+        const tag = e.target && e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+            post('inputBlurred', {});
+        }
     });
 
     window.addEventListener('message', function (event) {
