@@ -109,10 +109,19 @@ end)
 -- ============================================================
 RegisterNetEvent('faction:receiveNotification', function(data)
     if not data then return end
-    lib.notify({
-        type        = data.type or 'info',
-        title       = data.title or nil,
-        description = data.description or '',
-        duration    = data.duration or 5000
-    })
+    if nuiOpen then
+        SendNUIMessage({
+            action      = 'phoneNotify',
+            notifType   = data.type or 'info',
+            title       = data.title or '',
+            description = data.description or '',
+        })
+    else
+        lib.notify({
+            type        = data.type or 'info',
+            title       = data.title or nil,
+            description = data.description or '',
+            duration    = data.duration or 5000
+        })
+    end
 end)

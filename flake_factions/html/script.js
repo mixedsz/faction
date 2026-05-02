@@ -14,6 +14,7 @@
     const phoneWrapper = document.getElementById('phone-wrapper');
     const phoneScreen = document.getElementById('phone-screen');
     const phoneClock = document.getElementById('phone-clock');
+    const phoneToastContainer = document.getElementById('phone-toast-container');
     let tabData = {
         members: null,
         weapons: null,
@@ -122,6 +123,27 @@
         const h = String(now.getHours()).padStart(2, '0');
         const m = String(now.getMinutes()).padStart(2, '0');
         phoneClock.textContent = h + ':' + m;
+    }
+
+    function showPhoneToast(type, title, description) {
+        if (!phoneToastContainer) return;
+        const dot = type === 'success' ? 'dot-success'
+                  : type === 'error'   ? 'dot-error'
+                  : type === 'warning' ? 'dot-warning'
+                  : 'dot-info';
+        const toast = document.createElement('div');
+        toast.className = 'phone-toast';
+        toast.innerHTML =
+            `<div class="phone-toast-dot ${dot}"></div>` +
+            `<div class="phone-toast-body">` +
+            (title ? `<div class="phone-toast-title">${escapeHtml(title)}</div>` : '') +
+            (description ? `<div class="phone-toast-desc">${escapeHtml(description)}</div>` : '') +
+            `</div>`;
+        phoneToastContainer.appendChild(toast);
+        setTimeout(function () {
+            toast.classList.add('toast-leaving');
+            toast.addEventListener('animationend', function () { toast.remove(); }, { once: true });
+        }, 3500);
     }
 
     function openPhoneMode() {
@@ -2976,11 +2998,14 @@
         }
         
         if (data.action === 'updateFactionHUD') {
-            // Update faction info inside the Dynamic Island pill (visible only when phone is open)
             const labelEl = document.getElementById('phone-faction-label');
             const rankEl = document.getElementById('phone-faction-rank');
             if (labelEl) labelEl.textContent = data.show ? (data.factionLabel || '') : '';
             if (rankEl) rankEl.textContent = data.show ? (data.rank || '') : '';
+        }
+
+        if (data.action === 'phoneNotify') {
+            showPhoneToast(data.notifType || 'info', data.title || '', data.description || '');
         }
 
         if (data.action === 'hide') {

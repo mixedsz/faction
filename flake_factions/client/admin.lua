@@ -16,13 +16,16 @@ RegisterNetEvent('faction:openAdminPanel', function()
     OpenAdminPanel()
 end)
 
--- Open admin NUI panel
+-- Open admin NUI panel — always uses the standard floating UI, never phone mode
 function OpenAdminPanel()
+    nuiOpen = false -- admin panel doesn't lock controls
+    SetNuiFocusKeepInput(false)
     SetNuiFocus(true, true)
-    SendNUIMessage({ 
-        action = 'open', 
-        factions = {}, 
-        isAdmin = true 
+    SendNUIMessage({
+        action = 'open',
+        factions = {},
+        isAdmin = true,
+        usePhoneUI = false
     })
 end
 
