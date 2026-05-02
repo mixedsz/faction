@@ -168,5 +168,5 @@ CreateThread(function()
         )
     ]])
 
-    print('^2[lc_faction] Database tables initialised.^7')
+    print('^2[flake_factions] Database tables initialised.^7')
 end)
