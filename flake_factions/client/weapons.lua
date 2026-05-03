@@ -92,7 +92,7 @@ AddEventHandler('gameEventTriggered', function(name, args)
 
         -- We killed someone
         if attacker == localPed and victim ~= localPed then
-            if IsEntityAPlayer(victim) then
+            if IsPedAPlayer(victim) then
                 local victimServerId = GetPlayerServerId(NetworkGetPlayerIndexFromPed(victim))
                 TriggerServerEvent('faction:playerKilledPlayer', victimServerId)
             end
