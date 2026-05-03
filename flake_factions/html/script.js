@@ -991,10 +991,10 @@
             } else {
                 html += '<div class="weapons-list" style="display: flex; flex-direction: column; gap: 0.75rem;">';
                 weapons.forEach(weapon => {
-                    const loggedDate = weapon.logged_at ? formatDate(weapon.logged_at) : 'Unknown';
+                    const loggedDate = weapon.registered_at ? formatDate(weapon.registered_at) : 'Unknown';
                     const possessedBy = weapon.possessed_by || [];
                     const hasPossession = possessedBy.length > 0;
-                    
+
                     html += `
                         <div class="weapon-item" style="background: #27272a; border: 1px solid ${hasPossession ? '#3b82f6' : '#3f3f46'}; border-radius: 10px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -1263,7 +1263,7 @@
         } else {
             html += '<div class="weapons-list" style="display: flex; flex-direction: column; gap: 0.75rem;">';
             weapons.forEach(weapon => {
-                const loggedDate = weapon.logged_at ? formatDate(weapon.logged_at) : 'Unknown';
+                const loggedDate = weapon.registered_at ? formatDate(weapon.registered_at) : 'Unknown';
                 const possessedBy = weapon.possessed_by || [];
                 const hasPossession = possessedBy.length > 0;
                 html += `

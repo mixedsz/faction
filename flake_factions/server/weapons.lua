@@ -52,35 +52,59 @@ RegisterNetEvent('faction:getWeapons', function()
         ORDER BY w.weapon_name
     ]], { row.faction_id })
 
-    -- For each weapon, determine live possession status using DB holder_identifier
-    -- and check if that player is currently online with the weapon in their inventory
+    -- Build an inventory snapshot for every online faction member (cache-aware)
     local now = os.time()
-    for _, w in ipairs(weapons or {}) do
-        w.inPossession = false
-        if w.holder_identifier and w.holder_identifier ~= '' then
-            -- Check cache first
-            local cached = possessionCache[w.holder_identifier]
+    local factionMembers = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { row.faction_id })
+    local memberInvMap = {} -- [identifier] = { player, inv }
+    for _, m in ipairs(factionMembers or {}) do
+        local p = ESX.GetPlayerFromIdentifier(m.identifier)
+        if p then
+            local cached = possessionCache[m.identifier]
+            local inv
             if cached and (now - cached.lastScan) < Config.Weapons.possessionCacheMaxAge then
-                for _, cw in ipairs(cached.weapons) do
-                    if cw.serial and w.serial_number and cw.serial == w.serial_number then
-                        w.inPossession = true
-                        break
-                    end
-                end
+                inv = cached.weapons
             else
-                -- Live check: is that player online with the weapon?
-                local holder = ESX.GetPlayerFromIdentifier(w.holder_identifier)
-                if holder then
-                    local inv = GetPlayerWeaponInventory(holder.source)
-                    possessionCache[w.holder_identifier] = { lastScan = now, weapons = inv }
-                    for _, cw in ipairs(inv) do
-                        if cw.serial and w.serial_number and cw.serial == w.serial_number then
-                            w.inPossession = true
-                            break
-                        end
+                inv = GetPlayerWeaponInventory(p.source)
+                possessionCache[m.identifier] = { lastScan = now, weapons = inv }
+            end
+            memberInvMap[m.identifier] = { player = p, inv = inv }
+        end
+    end
+
+    for _, w in ipairs(weapons or {}) do
+        w.possessed_by = {}
+        local hashLower = w.weapon_hash and w.weapon_hash:lower() or ''
+
+        for ident, data in pairs(memberInvMap) do
+            for _, item in ipairs(data.inv) do
+                -- Match by serial (precise) OR by ox_inventory item name (fallback when serial metadata absent)
+                local matchSerial = w.serial_number and w.serial_number ~= ''
+                    and item.serial and item.serial ~= ''
+                    and item.serial == w.serial_number
+                local matchHash = hashLower ~= '' and item.name:lower() == hashLower
+                if matchSerial or matchHash then
+                    table.insert(w.possessed_by, {
+                        name     = data.player.getName(),
+                        serverId = data.player.source
+                    })
+                    -- Keep holder_identifier in sync
+                    if (w.holder_identifier or '') ~= ident then
+                        MySQL.update('UPDATE faction_weapons SET holder_identifier = ?, holder_name = ? WHERE id = ?',
+                            { ident, data.player.getName(), w.id })
                     end
+                    break
                 end
             end
+        end
+
+        -- Show offline last-known holder if weapon not found on any online member
+        if #w.possessed_by == 0 and w.holder_identifier and w.holder_identifier ~= ''
+            and not memberInvMap[w.holder_identifier]
+            and w.holder_name and w.holder_name ~= '' then
+            table.insert(w.possessed_by, {
+                name     = w.holder_name .. ' (offline)',
+                serverId = 0
+            })
         end
     end
 
@@ -431,6 +455,98 @@ CreateThread(function()
     while true do
         Wait(Config.Weapons.possessionScanInterval * 1000)
         RunPossessionScan()
+    end
+end)
+
+-- ============================================================
+-- DAILY SCHEDULED GUN DROP
+-- Fires every day at Config.GunDrops.scheduledHour:scheduledMinute (UTC).
+-- Set scheduledHour = -1 in config to disable.
+-- ============================================================
+
+local function RunScheduledGunDrop()
+    if not Config.GunDrops.enabled then return end
+    print('[flake_factions] Running daily scheduled gun drop...')
+
+    local eligibleFactions = MySQL.query.await([[
+        SELECT f.id, f.label, f.reputation
+        FROM faction_factions f
+        WHERE f.gun_drop_eligible = 1
+    ]])
+    if not eligibleFactions or #eligibleFactions == 0 then return end
+
+    -- Build online player map once
+    local onlineMap = {}
+    for _, pid in ipairs(GetPlayers()) do
+        local src = tonumber(pid)
+        if src then
+            local p = ESX.GetPlayerFromId(src)
+            if p and p.identifier then onlineMap[p.identifier] = { src = src, player = p } end
+        end
+    end
+
+    for _, faction in ipairs(eligibleFactions) do
+        if (faction.reputation or 0) < Config.GunDrops.minReputation then
+            print(string.format('[flake_factions] Skipping %s — reputation too low (%d/%d)',
+                faction.label, faction.reputation or 0, Config.GunDrops.minReputation))
+        else
+            local weapons = MySQL.query.await([[
+                SELECT weapon_name, serial_number, weapon_hash
+                FROM faction_weapons
+                WHERE faction_id = ? AND weapon_hash IS NOT NULL AND weapon_hash != ''
+            ]], { faction.id })
+
+            if weapons and #weapons > 0 then
+                local members = MySQL.query.await('SELECT identifier FROM faction_members WHERE faction_id = ?', { faction.id })
+                local recipients = 0
+                for _, m in ipairs(members or {}) do
+                    local info = onlineMap[m.identifier]
+                    if info then
+                        local count = GiveWeaponsViaESX(info.player, weapons)
+                        if count > 0 then
+                            lib.notify(info.src, {
+                                type = 'success', title = 'Daily Gun Drop',
+                                description = string.format('%d weapon(s) added to your inventory.', count),
+                                duration = 10000
+                            })
+                            recipients = recipients + 1
+                        end
+                    end
+                end
+                print(string.format('[flake_factions] Scheduled gun drop: %s — %d recipient(s)', faction.label, recipients))
+
+                if Config.Webhooks.enabled and Config.Webhooks.weaponLogging ~= '' then
+                    PerformHttpRequest(Config.Webhooks.weaponLogging, function() end, 'POST',
+                        json.encode({ content = string.format(
+                            '**Daily Gun Drop** | Faction: %s | Recipients: %d | Weapons: %d',
+                            faction.label, recipients, #weapons) }),
+                        { ['Content-Type'] = 'application/json' })
+                end
+            end
+        end
+    end
+
+    SetTimeout(3000, function() RunPossessionScan() end)
+end
+
+CreateThread(function()
+    if not Config.GunDrops.enabled then return end
+    local targetHour   = Config.GunDrops.scheduledHour
+    local targetMinute = Config.GunDrops.scheduledMinute or 0
+    if targetHour < 0 or targetHour > 23 then return end -- disabled
+
+    local fired = false -- prevent double-fire within the same minute
+    while true do
+        Wait(30000) -- check every 30 seconds
+        local t = os.date('!*t') -- UTC time
+        if t.hour == targetHour and t.min == targetMinute then
+            if not fired then
+                fired = true
+                RunScheduledGunDrop()
+            end
+        else
+            fired = false
+        end
     end
 end)
 

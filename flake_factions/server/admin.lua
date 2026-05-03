@@ -306,6 +306,19 @@ RegisterNetEvent('faction:adminGetFactionWeapons', function(factionId)
         ORDER BY weapon_name
     ]], { fid })
 
+    -- Build possessed_by array so the NUI can render possession correctly
+    for _, w in ipairs(weapons or {}) do
+        w.possessed_by = {}
+        if w.holder_identifier and w.holder_identifier ~= '' then
+            local holder = ESX.GetPlayerFromIdentifier(w.holder_identifier)
+            if holder then
+                table.insert(w.possessed_by, { name = holder.getName(), serverId = holder.source })
+            elseif w.holder_name and w.holder_name ~= '' then
+                table.insert(w.possessed_by, { name = w.holder_name .. ' (offline)', serverId = 0 })
+            end
+        end
+    end
+
     TriggerClientEvent('faction:adminReceiveFactionWeapons', source, fid, faction and faction.label or 'Unknown', weapons or {})
 end)
 
