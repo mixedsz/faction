@@ -1001,7 +1001,7 @@
                                 <div style="flex: 1;">
                                     <div style="color: #fff; font-weight: 600; margin-bottom: 0.25rem; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;">
                                         ${escapeHtml(weapon.weapon_name || 'Unknown Weapon')}
-                                        ${hasPossession ? `<span style="background: #3b82f6; color: #fff; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">IN USE</span>` : ''}
+                                        ${hasPossession ? `<span style="background: #3b82f6; color: #fff; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">IN INVENTORY</span>` : ''}
                                     </div>
                                     <div style="color: #71717a; font-size: 0.8125rem; margin-bottom: 0.125rem;">
                                         Serial: <span style="color: #a1a1aa; font-weight: 500;">${escapeHtml(weapon.serial_number || 'N/A')}</span>
@@ -1272,7 +1272,7 @@
                             <div style="flex: 1;">
                                 <div style="color: #fff; font-weight: 600; margin-bottom: 0.25rem; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;">
                                     ${escapeHtml(weapon.weapon_name || 'Unknown Weapon')}
-                                    ${hasPossession ? `<span style="background: #3b82f6; color: #fff; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">IN USE</span>` : ''}
+                                    ${hasPossession ? `<span style="background: #3b82f6; color: #fff; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">IN INVENTORY</span>` : ''}
                                 </div>
                                 <div style="color: #71717a; font-size: 0.8125rem; margin-bottom: 0.125rem;">
                                     Serial: <span style="color: #a1a1aa; font-weight: 500;">${escapeHtml(weapon.serial_number || 'N/A')}</span>
@@ -2593,10 +2593,15 @@
     function formatDate(dateValue) {
         if (!dateValue) return 'Unknown';
         try {
-            // oxmysql may return Unix timestamp (number) or a date string
-            const date = (typeof dateValue === 'number')
-                ? new Date(dateValue * 1000)   // Unix seconds → ms
-                : new Date(dateValue);
+            let date;
+            if (typeof dateValue === 'number') {
+                // oxmysql returns TIMESTAMP columns as milliseconds (not seconds)
+                date = dateValue > 1e10 ? new Date(dateValue) : new Date(dateValue * 1000);
+            } else {
+                // MySQL datetime strings use space separator ("2026-05-04 02:00:00")
+                // Replace space with 'T' and append 'Z' so JS parses as UTC, not local time
+                date = new Date(String(dateValue).replace(' ', 'T') + 'Z');
+            }
             if (isNaN(date.getTime())) return String(dateValue);
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         } catch (e) {
@@ -2873,7 +2878,7 @@
 
             const interval = setInterval(() => {
                 try {
-                    const diff = Math.max(0, Math.floor((new Date(endsAt) - new Date()) / 1000));
+                    const diff = Math.max(0, Math.floor((new Date(endsAt.replace(' ', 'T') + 'Z') - new Date()) / 1000));
                     if (diff <= 0) {
                         timerElement.textContent = 'Expired';
                         timerElement.style.color = '#ef4444';
