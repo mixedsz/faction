@@ -9,6 +9,10 @@
 
 if not Config.UsingFlakeDrugSelling then return end
 
+-- FiveM requires every resource that handles a net event to declare it,
+-- even when just listening from a different resource.
+RegisterNetEvent('flake_drugselling:server:sellDrug')
+
 local sellCooldowns = {} -- per-player cooldown so rapid sales don't spam rep
 local SELL_COOLDOWN  = 60 -- seconds between rep grants per player
 
