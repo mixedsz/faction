@@ -40,6 +40,7 @@ AddEventHandler('flake_drugselling:server:sellDrug', function(drugItem, drugCoun
 
     lib.notify(src, {
         type        = 'success',
+        position    = 'center-right',
         description = string.format('+%d faction rep from drug sale!', repGain)
     })
 

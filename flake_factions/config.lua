@@ -29,8 +29,13 @@ Config.Conflict = {
 -- Gun Drop Settings
 Config.GunDrops = {
     enabled = true,
-    cooldown = 86400, -- 24 hours
-    minReputation = 50, -- Minimum reputation required
+    -- Daily scheduled drop time (server/UTC time, 24h format)
+    -- 22 = 10 PM UTC = 5 PM EST (UTC-5) / 6 PM EDT (UTC-4)
+    -- Set scheduledHour = -1 to disable the auto-drop entirely.
+    scheduledHour   = 22, -- Hour (0-23, UTC) for the daily auto gun drop
+    scheduledMinute = 0,  -- Minute (0-59) for the daily auto gun drop
+    cooldown = 86400, -- 24 hours (used by /factiondrop admin command cooldown)
+    minReputation = 50, -- Minimum reputation required for auto gun drop
     maxPerFaction = 1 -- Max gun drops per faction at once
 }
 
