@@ -3,21 +3,18 @@
 local lastWeapon = nil
 local lastShotTime = 0
 
--- Check if player is in an altercation (shooting at another player)
+-- Check if any other player is within 100m (proximity-based altercation detection).
+-- IsPedInCombat is unreliable across clients; proximity is sufficient to identify
+-- a live-fire situation without false negatives.
 local function IsInAltercation()
-    local ped = PlayerPedId()
+    local ped    = PlayerPedId()
     local coords = GetEntityCoords(ped)
 
-    local players = GetActivePlayers()
-    for _, playerId in ipairs(players) do
+    for _, playerId in ipairs(GetActivePlayers()) do
         local targetPed = GetPlayerPed(playerId)
         if targetPed ~= ped and DoesEntityExist(targetPed) then
-            local targetCoords = GetEntityCoords(targetPed)
-            local distance = #(coords - targetCoords)
-            if distance < 100.0 then
-                if IsPedInCombat(ped, targetPed) or IsPedInCombat(targetPed, ped) then
-                    return true
-                end
+            if #(coords - GetEntityCoords(targetPed)) < 100.0 then
+                return true
             end
         end
     end
